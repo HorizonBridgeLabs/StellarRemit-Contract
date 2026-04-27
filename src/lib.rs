@@ -137,6 +137,14 @@ impl RemittanceContract {
             .unwrap_or(0)
     }
 
+    /// Read the configured admin address.
+    pub fn get_admin(env: Env) -> Address {
+        env.storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("admin not initialized")
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     fn next_id(env: &Env) -> u64 {

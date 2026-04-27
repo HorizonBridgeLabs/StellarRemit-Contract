@@ -137,6 +137,11 @@ impl RemittanceContract {
             .unwrap_or(0)
     }
 
+    /// Read the current transaction count.
+    pub fn tx_count(env: Env) -> u64 {
+        env.storage().instance().get(&DataKey::TxCount).unwrap_or(0)
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     fn next_id(env: &Env) -> u64 {

@@ -72,6 +72,26 @@ fn test_escrow_and_release() {
 }
 
 #[test]
+fn test_tx_count() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &10);
+
+    assert_eq!(client.tx_count(), 0);
+
+    let first_tx_id = client.send(&sender, &recipient, &1);
+    assert_eq!(first_tx_id, 1);
+    assert_eq!(client.tx_count(), 1);
+
+    let second_tx_id = client.escrow_funds(&sender, &recipient, &1);
+    assert_eq!(second_tx_id, 2);
+    assert_eq!(client.tx_count(), 2);
+}
+
+#[test]
 #[should_panic(expected = "not in escrow")]
 fn test_double_release_fails() {
     let (env, client) = setup();

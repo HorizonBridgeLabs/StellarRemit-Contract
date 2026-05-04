@@ -18,12 +18,31 @@ impl RemittanceContract {
     }
 
     /// Deposit funds into sender's on-chain balance.
-    pub fn deposit(env: Env, sender: Address, amount: i128) {
+    /// Returns the new balance after deposit.
+    pub fn deposit(env: Env, sender: Address, amount: i128) -> i128 {
         sender.require_auth();
+        
+        // Enhanced validation
         assert!(amount > 0, "amount must be positive");
+        const MIN_DEPOSIT: i128 = 1_000_000; // Minimum deposit amount (0.000001 XLM equivalent)
+        assert!(amount >= MIN_DEPOSIT, "amount below minimum deposit threshold");
+        
         let key = DataKey::Balance(sender.clone());
         let balance: i128 = env.storage().persistent().get(&key).unwrap_or(0);
-        env.storage().persistent().set(&key, &(balance + amount));
+        
+        // Overflow protection
+        assert!(balance <= i128::MAX - amount, "balance overflow detected");
+        
+        let new_balance = balance + amount;
+        env.storage().persistent().set(&key, &new_balance);
+        
+        // Emit deposit event for tracking
+        env.events().publish(
+            (Symbol::new(&env, "deposit"), sender.clone()),
+            (amount, new_balance),
+        );
+        
+        new_balance
     }
 
     /// Transfer funds from sender to recipient immediately.

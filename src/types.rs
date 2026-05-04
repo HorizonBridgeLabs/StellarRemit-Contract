@@ -10,13 +10,14 @@ pub enum TransactionStatus {
 }
 
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Transaction {
     pub id: u64,
     pub sender: Address,
     pub recipient: Address,
     pub amount: i128,
     pub status: TransactionStatus,
+    pub timestamp: u64,
 }
 
 #[contracttype]

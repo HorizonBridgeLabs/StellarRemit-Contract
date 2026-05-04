@@ -23,7 +23,7 @@ impl RemittanceContract {
         sender.require_auth();
         
         // Enhanced validation
-        assert!(amount > 0, "amount must be positive");
+        assert!(amount > 0, "Deposit amount must be greater than zero");
         const MIN_DEPOSIT: i128 = 1_000_000; // Minimum deposit amount (0.000001 XLM equivalent)
         assert!(amount >= MIN_DEPOSIT, "amount below minimum deposit threshold");
         
@@ -48,7 +48,7 @@ impl RemittanceContract {
     /// Transfer funds from sender to recipient immediately.
     pub fn send(env: Env, sender: Address, recipient: Address, amount: i128) -> u64 {
         sender.require_auth();
-        assert!(amount > 0, "amount must be positive");
+        assert!(amount > 0, "Send amount must be greater than zero");
 
         let sender_key = DataKey::Balance(sender.clone());
         let sender_bal: i128 = env.storage().persistent().get(&sender_key).unwrap_or(0);
@@ -84,7 +84,7 @@ impl RemittanceContract {
     /// Lock funds in escrow pending release.
     pub fn escrow_funds(env: Env, sender: Address, recipient: Address, amount: i128) -> u64 {
         sender.require_auth();
-        assert!(amount > 0, "amount must be positive");
+        assert!(amount > 0, "Escrow amount must be greater than zero");
 
         let sender_key = DataKey::Balance(sender.clone());
         let sender_bal: i128 = env.storage().persistent().get(&sender_key).unwrap_or(0);

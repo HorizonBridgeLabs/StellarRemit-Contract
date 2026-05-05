@@ -140,7 +140,7 @@ impl RemittanceContract {
         );
     }
 
-    /// Read a transaction by ID.
+    /// Read a transaction by ID...
     pub fn get_transaction(env: Env, transaction_id: u64) -> Transaction {
         env.storage()
             .persistent()

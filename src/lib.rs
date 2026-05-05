@@ -17,7 +17,7 @@ impl RemittanceContract {
         env.storage().instance().set(&DataKey::TxCount, &0u64);
     }
 
-    /// Deposit funds into sender's on-chain balance.
+    /// Deposit funds into sender's on-chain balance.!!!!!!
     /// Returns the new balance after deposit.
     pub fn deposit(env: Env, sender: Address, amount: i128) -> i128 {
         sender.require_auth();
@@ -61,12 +61,14 @@ impl RemittanceContract {
         env.storage().persistent().set(&recipient_key, &(recipient_bal + amount));
 
         let id = Self::next_id(&env);
+        let timestamp = env.ledger().timestamp();
         let tx = Transaction {
             id,
             sender: sender.clone(),
             recipient: recipient.clone(),
             amount,
             status: TransactionStatus::Completed,
+            timestamp,
         };
         env.storage().persistent().set(&DataKey::Transaction(id), &tx);
 
@@ -93,12 +95,14 @@ impl RemittanceContract {
         env.storage().persistent().set(&sender_key, &(sender_bal - amount));
 
         let id = Self::next_id(&env);
+        let timestamp = env.ledger().timestamp();
         let tx = Transaction {
             id,
             sender: sender.clone(),
             recipient,
             amount,
             status: TransactionStatus::Escrowed,
+            timestamp,
         };
         env.storage().persistent().set(&DataKey::Transaction(id), &tx);
 

@@ -161,7 +161,7 @@ impl RemittanceContract {
         env.storage().instance().get(&DataKey::TxCount).unwrap_or(0)
     }
 
-    // ── helpers ──────────────────────────────────────────────────────────────
+    // ──__________________ helpers ________________________
 
     fn next_id(env: &Env) -> u64 {
         let count: u64 = env

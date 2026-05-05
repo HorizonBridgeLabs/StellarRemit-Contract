@@ -10,7 +10,7 @@ pub struct RemittanceContract;
 
 #[contractimpl]
 impl RemittanceContract {
-    /// Initialize contract with an admin address.
+    /// Initialize contract with an admin address for the remmittanceContract.
     pub fn init(env: Env, admin: Address) {
         admin.require_auth();
         env.storage().instance().set(&DataKey::Admin, &admin);

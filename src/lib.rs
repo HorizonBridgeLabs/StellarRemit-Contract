@@ -140,7 +140,7 @@ impl RemittanceContract {
         );
     }
 
-    /// Read a transaction by ID.
+    /// Read a transaction by ID...
     pub fn get_transaction(env: Env, transaction_id: u64) -> Transaction {
         env.storage()
             .persistent()
@@ -161,7 +161,7 @@ impl RemittanceContract {
         env.storage().instance().get(&DataKey::TxCount).unwrap_or(0)
     }
 
-    // ── helpers ──────────────────────────────────────────────────────────────
+    // ──__________________ helpers ________________________
 
     fn next_id(env: &Env) -> u64 {
         let count: u64 = env

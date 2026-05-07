@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use soroban_sdk::{testutils::Address as _, Address, Env};
+use soroban_sdk::{testutils::{Address as _, Events as _}, Address, Env, IntoVal, Symbol};
 use stellarremit_contract::{RemittanceContract, RemittanceContractClient};
 
 fn setup() -> (Env, RemittanceContractClient<'static>) {
@@ -24,8 +24,8 @@ fn test_deposit_and_balance() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     client.init(&admin);
-    client.deposit(&user, &1000);
-    assert_eq!(client.balance(&user), 1000);
+    client.deposit(&user, &1_000_000);
+    assert_eq!(client.balance(&user), 1_000_000);
 }
 
 #[test]
@@ -35,12 +35,12 @@ fn test_successful_send() {
     let sender = Address::generate(&env);
     let recipient = Address::generate(&env);
     client.init(&admin);
-    client.deposit(&sender, &500);
-    let tx_id = client.send(&sender, &recipient, &200);
-    assert_eq!(client.balance(&sender), 300);
-    assert_eq!(client.balance(&recipient), 200);
+    client.deposit(&sender, &1_000_000);
+    let tx_id = client.send(&sender, &recipient, &200_000);
+    assert_eq!(client.balance(&sender), 800_000);
+    assert_eq!(client.balance(&recipient), 200_000);
     let tx = client.get_transaction(&tx_id);
-    assert_eq!(tx.amount, 200);
+    assert_eq!(tx.amount, 200_000);
 }
 
 #[test]
@@ -51,8 +51,8 @@ fn test_send_insufficient_balance() {
     let sender = Address::generate(&env);
     let recipient = Address::generate(&env);
     client.init(&admin);
-    client.deposit(&sender, &100);
-    client.send(&sender, &recipient, &500); // should panic
+    client.deposit(&sender, &1_000_000);
+    client.send(&sender, &recipient, &5_000_000); // should panic
 }
 
 #[test]
@@ -62,13 +62,13 @@ fn test_escrow_and_release() {
     let sender = Address::generate(&env);
     let recipient = Address::generate(&env);
     client.init(&admin);
-    client.deposit(&sender, &1000);
-    let tx_id = client.escrow_funds(&sender, &recipient, &400);
+    client.deposit(&sender, &1_000_000);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000);
     // funds deducted from sender, not yet at recipient
-    assert_eq!(client.balance(&sender), 600);
+    assert_eq!(client.balance(&sender), 600_000);
     assert_eq!(client.balance(&recipient), 0);
     client.release_escrow(&tx_id);
-    assert_eq!(client.balance(&recipient), 400);
+    assert_eq!(client.balance(&recipient), 400_000);
 }
 
 #[test]
@@ -78,15 +78,15 @@ fn test_tx_count() {
     let sender = Address::generate(&env);
     let recipient = Address::generate(&env);
     client.init(&admin);
-    client.deposit(&sender, &10);
+    client.deposit(&sender, &3_000_000);
 
     assert_eq!(client.tx_count(), 0);
 
-    let first_tx_id = client.send(&sender, &recipient, &1);
+    let first_tx_id = client.send(&sender, &recipient, &1_000_000);
     assert_eq!(first_tx_id, 1);
     assert_eq!(client.tx_count(), 1);
 
-    let second_tx_id = client.escrow_funds(&sender, &recipient, &1);
+    let second_tx_id = client.escrow_funds(&sender, &recipient, &1_000_000);
     assert_eq!(second_tx_id, 2);
     assert_eq!(client.tx_count(), 2);
 }
@@ -99,8 +99,41 @@ fn test_double_release_fails() {
     let sender = Address::generate(&env);
     let recipient = Address::generate(&env);
     client.init(&admin);
-    client.deposit(&sender, &1000);
-    let tx_id = client.escrow_funds(&sender, &recipient, &400);
+    client.deposit(&sender, &1_000_000);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000);
     client.release_escrow(&tx_id);
     client.release_escrow(&tx_id); // should panic
 }
+
+#[test]
+fn test_escrow_funds_emits_transfer_created_event() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000);
+
+    // deposit emits 1 event; escrow_funds emits 1 event — check the last one
+    let events = env.events().all();
+    assert_eq!(events.len(), 2);
+    assert_eq!(
+        events,
+        soroban_sdk::vec![
+            &env,
+            (
+                client.address.clone(),
+                (Symbol::new(&env, "deposit"), sender.clone()).into_val(&env),
+                (1_000_000i128, 1_000_000i128).into_val(&env),
+            ),
+            (
+                client.address.clone(),
+                (Symbol::new(&env, "transfer_created"), sender.clone()).into_val(&env),
+                (tx_id, 400_000i128).into_val(&env),
+            ),
+        ]
+    );
+}
+

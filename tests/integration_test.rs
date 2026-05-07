@@ -145,3 +145,27 @@ fn test_escrow_funds_emits_transfer_created_event() {
     );
 }
 
+#[test]
+fn test_release_escrow_emits_transfer_completed_event() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000);
+    client.release_escrow(&tx_id);
+
+    let events = env.events().all();
+    assert_eq!(events.len(), 3);
+    assert_eq!(
+        events[2],
+        (
+            client.address.clone(),
+            (Symbol::new(&env, "transfer_completed"), sender.clone()).into_val(&env),
+            (tx_id, recipient.clone()).into_val(&env),
+        )
+    );
+}
+

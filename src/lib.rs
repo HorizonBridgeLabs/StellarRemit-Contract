@@ -144,6 +144,14 @@ impl RemittanceContract {
         );
     }
 
+    /// Read the admin address.
+pub fn get_admin(env: Env) -> Address {
+    env.storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .expect("admin not set")
+}
+
     /// Read a transaction by ID...
     pub fn get_transaction(env: Env, transaction_id: u64) -> Transaction {
         env.storage()

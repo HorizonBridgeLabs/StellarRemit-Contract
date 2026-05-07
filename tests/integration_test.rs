@@ -19,6 +19,14 @@ fn test_init() {
 }
 
 #[test]
+fn test_get_admin() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+    assert_eq!(client.get_admin(), admin);
+}
+
+#[test]
 fn test_deposit_and_balance() {
     let (env, client) = setup();
     let admin = Address::generate(&env);

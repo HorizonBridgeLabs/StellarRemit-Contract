@@ -56,6 +56,7 @@ impl RemittanceContract {
 
         let recipient_key = DataKey::Balance(recipient.clone());
         let recipient_bal: i128 = env.storage().persistent().get(&recipient_key).unwrap_or(0);
+        assert!(recipient_bal <= i128::MAX - amount, "balance overflow detected");
 
         env.storage().persistent().set(&sender_key, &(sender_bal - amount));
         env.storage().persistent().set(&recipient_key, &(recipient_bal + amount));
@@ -131,6 +132,7 @@ impl RemittanceContract {
 
         let recipient_key = DataKey::Balance(tx.recipient.clone());
         let recipient_bal: i128 = env.storage().persistent().get(&recipient_key).unwrap_or(0);
+        assert!(recipient_bal <= i128::MAX - tx.amount, "balance overflow detected");
         env.storage()
             .persistent()
             .set(&recipient_key, &(recipient_bal + tx.amount));
@@ -142,6 +144,14 @@ impl RemittanceContract {
             (Symbol::new(&env, "transfer_completed"), tx.sender),
             (transaction_id, tx.recipient),
         );
+    }
+
+    /// Read the configured admin address.
+    pub fn get_admin(env: Env) -> Address {
+        env.storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("admin not initialized")
     }
 
     /// Read a transaction by ID...

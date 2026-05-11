@@ -64,6 +64,18 @@ fn test_send_insufficient_balance() {
 }
 
 #[test]
+#[should_panic(expected = "insufficient balance")]
+fn test_escrow_insufficient_balance() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+    client.escrow_funds(&sender, &recipient, &5_000_000); // should panic
+}
+
+#[test]
 fn test_escrow_and_release() {
     let (env, client) = setup();
     let admin = Address::generate(&env);

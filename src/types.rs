@@ -18,6 +18,8 @@ pub struct Transaction {
     pub amount: i128,
     pub status: TransactionStatus,
     pub timestamp: u64,
+    /// Ledger sequence number after which this escrow expires (0 = no expiry)
+    pub expires_at: u64,
 }
 
 #[contracttype]

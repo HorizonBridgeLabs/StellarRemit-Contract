@@ -32,6 +32,7 @@ impl RemittanceContract {
         // Balance uses persistent() storage: per-address data must survive
         // beyond the contract instance's TTL and be independently renewable.
         let key = DataKey::Balance(sender.clone());
+        // Balance uses persistent storage — survives ledger expiry
         let balance: i128 = env.storage().persistent().get(&key).unwrap_or(0);
         
         // Overflow protection
@@ -56,6 +57,7 @@ impl RemittanceContract {
 
         // Balance keys use persistent() storage so user funds survive instance eviction.
         let sender_key = DataKey::Balance(sender.clone());
+        // Balance uses persistent storage — survives ledger expiry
         let sender_bal: i128 = env.storage().persistent().get(&sender_key).unwrap_or(0);
         assert!(sender_bal >= amount, "insufficient balance");
 
@@ -75,8 +77,9 @@ impl RemittanceContract {
             amount,
             status: TransactionStatus::Completed,
             timestamp,
+            expires_at: 0,
         };
-        // Transaction uses persistent() storage so records are durable and queryable long-term.
+        // Transaction uses persistent storage — survives ledger expiry
         env.storage().persistent().set(&DataKey::Transaction(id), &tx);
 
         env.events().publish(
@@ -91,11 +94,12 @@ impl RemittanceContract {
     }
 
     /// Lock funds in escrow pending release.
-    pub fn escrow_funds(env: Env, sender: Address, recipient: Address, amount: i128) -> u64 {
+    /// `expiry_ledgers`: number of ledgers until escrow expires (0 = no expiry).
+    pub fn escrow_funds(env: Env, sender: Address, recipient: Address, amount: i128, expiry_ledgers: u32) -> u64 {
         sender.require_auth();
         assert!(amount > 0, "Escrow amount must be greater than zero");
 
-        // Balance uses persistent() storage so escrowed funds are durably tracked.
+        // Balance uses persistent storage — survives ledger expiry
         let sender_key = DataKey::Balance(sender.clone());
         let sender_bal: i128 = env.storage().persistent().get(&sender_key).unwrap_or(0);
         assert!(sender_bal >= amount, "insufficient balance");
@@ -104,6 +108,11 @@ impl RemittanceContract {
 
         let id = Self::next_id(&env);
         let timestamp = env.ledger().timestamp();
+        let expires_at = if expiry_ledgers > 0 {
+            u64::from(env.ledger().sequence()) + u64::from(expiry_ledgers)
+        } else {
+            0
+        };
         let tx = Transaction {
             id,
             sender: sender.clone(),
@@ -111,7 +120,9 @@ impl RemittanceContract {
             amount,
             status: TransactionStatus::Escrowed,
             timestamp,
+            expires_at,
         };
+        // Transaction uses persistent storage — survives ledger expiry
         env.storage().persistent().set(&DataKey::Transaction(id), &tx);
 
         env.events().publish(
@@ -123,7 +134,7 @@ impl RemittanceContract {
 
     /// Release escrowed funds to recipient.
     pub fn release_escrow(env: Env, transaction_id: u64) {
-        // Transaction uses persistent() storage — load the durable record by ID.
+        // Transaction uses persistent storage — survives ledger expiry
         let key = DataKey::Transaction(transaction_id);
         let mut tx: Transaction = env
             .storage()
@@ -136,8 +147,17 @@ impl RemittanceContract {
             "not in escrow"
         );
 
+        // Expiry check: if expires_at is set, current ledger must not exceed it
+        if tx.expires_at > 0 {
+            assert!(
+                u64::from(env.ledger().sequence()) <= tx.expires_at,
+                "escrow expired"
+            );
+        }
+
         tx.sender.require_auth();
 
+        // Balance uses persistent storage — survives ledger expiry
         let recipient_key = DataKey::Balance(tx.recipient.clone());
         let recipient_bal: i128 = env.storage().persistent().get(&recipient_key).unwrap_or(0);
         assert!(recipient_bal <= i128::MAX - tx.amount, "balance overflow detected");

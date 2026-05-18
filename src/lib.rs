@@ -13,6 +13,8 @@ impl RemittanceContract {
     /// Initialize contract with an admin address for the remmittanceContract.
     pub fn init(env: Env, admin: Address) {
         admin.require_auth();
+        // Admin and TxCount use instance() storage: they are contract-scoped singletons
+        // that share the contract instance's ledger entry and are evicted together.
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::TxCount, &0u64);
     }
@@ -27,6 +29,8 @@ impl RemittanceContract {
         const MIN_DEPOSIT: i128 = 1_000_000; // Minimum deposit amount (0.000001 XLM equivalent)
         assert!(amount >= MIN_DEPOSIT, "amount below minimum deposit threshold");
         
+        // Balance uses persistent() storage: per-address data must survive
+        // beyond the contract instance's TTL and be independently renewable.
         let key = DataKey::Balance(sender.clone());
         // Balance uses persistent storage — survives ledger expiry
         let balance: i128 = env.storage().persistent().get(&key).unwrap_or(0);
@@ -51,6 +55,7 @@ impl RemittanceContract {
         sender.require_auth();
         assert!(amount > 0, "Send amount must be greater than zero");
 
+        // Balance keys use persistent() storage so user funds survive instance eviction.
         let sender_key = DataKey::Balance(sender.clone());
         // Balance uses persistent storage — survives ledger expiry
         let sender_bal: i128 = env.storage().persistent().get(&sender_key).unwrap_or(0);
@@ -201,6 +206,8 @@ impl RemittanceContract {
     // ──__________________ helpers ________________________
 
     fn next_id(env: &Env) -> u64 {
+        // TxCount uses instance() storage: it is a contract-scoped counter that
+        // lives and expires with the contract instance.
         let count: u64 = env
             .storage()
             .instance()

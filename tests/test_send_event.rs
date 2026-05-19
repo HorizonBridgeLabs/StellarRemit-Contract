@@ -40,4 +40,21 @@ fn test_send_emits_transfer_created_event() {
     let (emitted_id, emitted_amount): (u64, i128) = data.into_val(&env);
     assert_eq!(emitted_id, tx_id);
     assert_eq!(emitted_amount, 5_000_000);
+
+    // Check that transfer_completed event was published
+    let transfer_completed = events.iter().find(|(_, topics, _)| {
+        *topics
+            == vec![
+                &env,
+                Symbol::new(&env, "transfer_completed").into_val(&env),
+                sender.clone().into_val(&env),
+            ]
+    });
+
+    assert!(transfer_completed.is_some(), "transfer_completed event not emitted");
+
+    let (_, _, data2) = transfer_completed.unwrap();
+    let (emitted_id2, emitted_recipient): (u64, Address) = data2.into_val(&env);
+    assert_eq!(emitted_id2, tx_id);
+    assert_eq!(emitted_recipient, recipient);
 }

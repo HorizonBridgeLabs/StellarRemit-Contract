@@ -12,6 +12,9 @@ pub struct RemittanceContract;
 impl RemittanceContract {
     /// Initialize contract with an admin address for the remmittanceContract.
     pub fn init(env: Env, admin: Address) {
+        if env.storage().instance().has(&DataKey::Admin) {
+            panic!("already initialized");
+        }
         admin.require_auth();
         // Admin and TxCount use instance() storage: they are contract-scoped singletons
         // that share the contract instance's ledger entry and are evicted together.

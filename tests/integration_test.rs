@@ -19,6 +19,15 @@ fn test_init() {
 }
 
 #[test]
+#[should_panic(expected = "already initialized")]
+fn test_init_twice_panics() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+    client.init(&admin); // should panic
+}
+
+#[test]
 fn test_get_admin() {
     let (env, client) = setup();
     let admin = Address::generate(&env);

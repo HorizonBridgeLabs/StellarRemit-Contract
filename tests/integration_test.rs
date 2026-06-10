@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use soroban_sdk::{testutils::{Address as _, Events as _, Ledger as _}, Address, Env, IntoVal, Symbol};
-use stellarremit_contract::{RemittanceContract, RemittanceContractClient};
+use stellarremit_contract::{RemittanceContract, RemittanceContractClient, TransactionStatus};
 
 fn setup() -> (Env, RemittanceContractClient<'static>) {
     let env = Env::default();
@@ -58,6 +58,7 @@ fn test_successful_send() {
     assert_eq!(client.balance(&recipient), 200_000);
     let tx = client.get_transaction(&tx_id);
     assert_eq!(tx.amount, 200_000);
+    assert_eq!(tx.status, TransactionStatus::Completed);
 }
 
 #[test]
@@ -98,6 +99,8 @@ fn test_escrow_and_release() {
     assert_eq!(client.balance(&recipient), 0);
     client.release_escrow(&tx_id);
     assert_eq!(client.balance(&recipient), 400_000);
+    let tx = client.get_transaction(&tx_id);
+    assert_eq!(tx.status, TransactionStatus::Released);
 }
 
 #[test]
@@ -231,4 +234,45 @@ fn test_escrow_expiry_prevents_release() {
 
     // Should panic: escrow expired
     client.release_escrow(&tx_id);
+}
+
+#[test]
+#[should_panic(expected = "Send amount must be greater than zero")]
+fn test_send_zero_amount_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.send(&sender, &recipient, &0);
+}
+
+#[test]
+#[should_panic(expected = "Deposit amount must be greater than zero")]
+fn test_deposit_zero_amount_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&user, &0);
+}
+
+#[test]
+#[should_panic(expected = "Escrow amount must be greater than zero")]
+fn test_escrow_zero_amount_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.escrow_funds(&sender, &recipient, &0, &0);
+}
+
+#[test]
+#[should_panic(expected = "transaction not found")]
+fn test_get_transaction_not_found_panics() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+    client.get_transaction(&999);
 }

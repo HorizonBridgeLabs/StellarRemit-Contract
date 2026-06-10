@@ -5,6 +5,8 @@ mod types;
 use soroban_sdk::{contract, contractimpl, Address, Env, Symbol};
 use types::{DataKey, Transaction, TransactionStatus};
 
+pub use types::TransactionStatus;
+
 #[contract]
 pub struct RemittanceContract;
 

@@ -193,6 +193,22 @@ soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphra
 soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
   -- extend_ttl --ledgers 535680
 
+# Get version
+soroban contract invoke --id $ID --rpc-url $RPC --network-passphrase "$PASS" \
+  -- version
+
+# Get aggregate stats
+soroban contract invoke --id $ID --rpc-url $RPC --network-passphrase "$PASS" \
+  -- stats
+
+# Get total supply
+soroban contract invoke --id $ID --rpc-url $RPC --network-passphrase "$PASS" \
+  -- total_supply
+
+# Set user metadata
+soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
+  -- set_user_metadata --user G... --key kyc_status --value verified
+
 # Check balance
 soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
   -- balance --addr G...

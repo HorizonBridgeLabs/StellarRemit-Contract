@@ -1,4 +1,9 @@
 #![no_std]
+//! # StellarRemit Contract
+//!
+//! Soroban smart contract for on-chain remittance on Stellar.
+//! Supports deposits, instant transfers, escrow with expiry,
+//! configurable fees, rate limiting, and pause mechanism.
 
 mod types;
 

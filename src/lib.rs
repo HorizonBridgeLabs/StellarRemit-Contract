@@ -39,11 +39,7 @@ impl RemittanceContract {
         let key = DataKey::Balance(sender.clone());
         // Balance uses persistent storage — survives ledger expiry
         let balance: i128 = env.storage().persistent().get(&key).unwrap_or(0);
-        
-        // Overflow protection
-        assert!(balance <= i128::MAX - amount, "balance overflow detected");
-        
-        let new_balance = balance + amount;
+        let new_balance = balance.checked_add(amount).expect("arithmetic overflow");
         env.storage().persistent().set(&key, &new_balance);
         
         // Emit deposit event for tracking
@@ -68,10 +64,13 @@ impl RemittanceContract {
 
         let recipient_key = DataKey::Balance(recipient.clone());
         let recipient_bal: i128 = env.storage().persistent().get(&recipient_key).unwrap_or(0);
-        assert!(recipient_bal <= i128::MAX - amount, "balance overflow detected");
 
-        env.storage().persistent().set(&sender_key, &(sender_bal - amount));
-        env.storage().persistent().set(&recipient_key, &(recipient_bal + amount));
+        env.storage()
+            .persistent()
+            .set(&sender_key, &sender_bal.checked_sub(amount).expect("arithmetic overflow"));
+        env.storage()
+            .persistent()
+            .set(&recipient_key, &recipient_bal.checked_add(amount).expect("arithmetic overflow"));
 
         let id = Self::next_id(&env);
         let timestamp = env.ledger().timestamp();
@@ -109,7 +108,9 @@ impl RemittanceContract {
         let sender_bal: i128 = env.storage().persistent().get(&sender_key).unwrap_or(0);
         assert!(sender_bal >= amount, "insufficient balance");
 
-        env.storage().persistent().set(&sender_key, &(sender_bal - amount));
+        env.storage()
+            .persistent()
+            .set(&sender_key, &sender_bal.checked_sub(amount).expect("arithmetic overflow"));
 
         let id = Self::next_id(&env);
         let timestamp = env.ledger().timestamp();
@@ -165,10 +166,9 @@ impl RemittanceContract {
         // Balance uses persistent storage — survives ledger expiry
         let recipient_key = DataKey::Balance(tx.recipient.clone());
         let recipient_bal: i128 = env.storage().persistent().get(&recipient_key).unwrap_or(0);
-        assert!(recipient_bal <= i128::MAX - tx.amount, "balance overflow detected");
         env.storage()
             .persistent()
-            .set(&recipient_key, &(recipient_bal + tx.amount));
+            .set(&recipient_key, &recipient_bal.checked_add(tx.amount).expect("arithmetic overflow"));
 
         tx.status = TransactionStatus::Released;
         env.storage().persistent().set(&key, &tx);
@@ -185,6 +185,30 @@ impl RemittanceContract {
             .instance()
             .get(&DataKey::Admin)
             .expect("admin not initialized")
+    }
+
+    /// Transfer admin rights to a new address.
+    /// Requires authentication from the current admin.
+    /// Emits an admin_transferred event.
+    pub fn transfer_admin(env: Env, new_admin: Address) {
+        let current_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("admin not initialized");
+        current_admin.require_auth();
+
+        assert!(
+            new_admin != current_admin,
+            "new admin must differ from current admin"
+        );
+
+        env.storage().instance().set(&DataKey::Admin, &new_admin);
+
+        env.events().publish(
+            (Symbol::new(&env, "admin_transferred"), current_admin),
+            new_admin,
+        );
     }
 
     /// Read a transaction by ID...

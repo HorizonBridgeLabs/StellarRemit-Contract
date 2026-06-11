@@ -83,6 +83,14 @@ bash deploy.sh
 | `balance(addr)` | — | Read address balance |
 | `tx_count()` | — | Read total transaction count |
 | `is_paused()` | — | Check if contract is paused |
+| `total_supply()` | — | Read total deposited funds |
+| `set_rate_limit(seconds)` | admin | Change rate limit cooldown (0 = disable) |
+| `get_rate_limit()` | — | Read current rate limit cooldown |
+| `set_fee(bps, treasury)` | admin | Configure fee percentage and treasury |
+| `get_fee()` | — | Read current fee configuration |
+| `extend_ttl(ledgers)` | admin | Extend persistent storage TTL |
+| `set_user_metadata(user, key, value)` | user | Store per-user metadata |
+| `get_user_metadata(user)` | — | Read user metadata |
 
 ---
 
@@ -98,6 +106,10 @@ bash deploy.sh
 | `contract_paused` | `pause` | `()` |
 | `contract_unpaused` | `unpause` | `()` |
 | `withdraw` | `withdraw` | `(to, amount)` |
+| `fee_updated` | `set_fee` | `(fee_bps, treasury)` |
+| `rate_limit_updated` | `set_rate_limit` | `cooldown_seconds` |
+| `ttl_extended` | `extend_ttl` | `ledgers` |
+| `metadata_updated` | `set_user_metadata` | `(user, key)` |
 
 ---
 
@@ -159,6 +171,26 @@ soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphra
 soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
   -- release_escrow --transaction_id 1
 
+# Cancel escrow
+soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
+  -- cancel_escrow --transaction_id 1
+
+# Pause / unpause
+soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
+  -- pause
+
+# Set fee (2.5% to treasury)
+soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
+  -- set_fee --fee_bps 250 --treasury G...
+
+# Set rate limit (60s cooldown)
+soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
+  -- set_rate_limit --cooldown_seconds 60
+
+# Extend storage TTL
+soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
+  -- extend_ttl --ledgers 535680
+
 # Check balance
 soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
   -- balance --addr G...
@@ -180,6 +212,9 @@ soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphra
 | `DataKey::Balance(addr)` | Persistent | Per-address balance |
 | `DataKey::Transaction(id)` | Persistent | Transaction record by ID |
 | `DataKey::LastTxTime(addr)` | Persistent | Last operation timestamp for rate limiting |
+| `DataKey::TotalSupply` | Persistent | Total deposited funds tracker |
+| `DataKey::FeeConfig` | Instance | Fee rate and treasury address |
+| `DataKey::UserMetadata(addr)` | Persistent | Per-user key-value metadata |
 
 ---
 

@@ -886,3 +886,34 @@ fn test_extend_ttl_succeeds() {
     });
     assert!(ttl_event.is_some(), "ttl_extended event not emitted");
 }
+
+// ── user metadata tests ────────────────────────────────
+
+#[test]
+fn test_set_and_get_user_metadata() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    let key = soroban_sdk::String::from_str(&env, "kyc_status");
+    let value = soroban_sdk::String::from_str(&env, "verified");
+    client.set_user_metadata(&user, &key, &value);
+
+    let result = client.get_user_metadata(&user);
+    assert!(result.is_some());
+    let (stored_key, stored_value) = result.unwrap();
+    assert_eq!(stored_key, key);
+    assert_eq!(stored_value, value);
+}
+
+#[test]
+fn test_get_user_metadata_returns_none_for_new_user() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    let result = client.get_user_metadata(&user);
+    assert!(result.is_none());
+}

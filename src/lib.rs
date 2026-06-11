@@ -403,6 +403,33 @@ impl RemittanceContract {
             .unwrap_or(0)
     }
 
+    /// Store arbitrary user metadata (e.g., KYC status, profile info).
+    /// Only the user themselves can set their own metadata.
+    pub fn set_user_metadata(
+        env: Env,
+        user: Address,
+        key: soroban_sdk::String,
+        value: soroban_sdk::String,
+    ) {
+        user.require_auth();
+        let storage_key = DataKey::UserMetadata(user.clone());
+        env.storage()
+            .persistent()
+            .set(&storage_key, &(key.clone(), value));
+
+        env.events()
+            .publish((Symbol::new(&env, "metadata_updated"), user), key);
+    }
+
+    /// Read user metadata. Returns None if no metadata has been set.
+    pub fn get_user_metadata(
+        env: Env,
+        user: Address,
+    ) -> Option<(soroban_sdk::String, soroban_sdk::String)> {
+        let storage_key = DataKey::UserMetadata(user);
+        env.storage().persistent().get(&storage_key)
+    }
+
     /// Admin-only: extend the TTL (time-to-live) of core persistent entries.
     /// Bumps ledger entry lifetimes by `ledgers` ledgers for TotalSupply
     /// and all stored Transaction entries. Call periodically to prevent

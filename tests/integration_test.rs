@@ -942,3 +942,73 @@ fn test_stats_returns_aggregate_data() {
     assert!(!paused);
     assert_eq!(cooldown, 300);
 }
+
+#[test]
+fn test_stats_reflects_pause_state() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    let (_, _, paused, _) = client.stats();
+    assert!(!paused);
+
+    client.pause();
+    let (_, _, paused, _) = client.stats();
+    assert!(paused);
+}
+
+// ── edge case tests ─────────────────────────────────────
+
+#[test]
+fn test_send_exact_balance_succeeds() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    // Send exact balance
+    let tx_id = client.send(&sender, &recipient, &1_000_000);
+    assert!(tx_id > 0);
+    assert_eq!(client.balance(&sender), 0);
+    assert_eq!(client.balance(&recipient), 1_000_000);
+}
+
+#[test]
+fn test_deposit_minimum_amount_succeeds() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    client.deposit(&user, &1_000_000);
+    assert_eq!(client.balance(&user), 1_000_000);
+}
+
+#[test]
+fn test_set_fee_emits_event() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+
+    client.set_fee(&500, &treasury);
+
+    let events = env.events().all();
+    let fee_event = events.iter().find(|(_, topics, _)| {
+        *topics == soroban_sdk::vec![&env, Symbol::new(&env, "fee_updated").into_val(&env),]
+    });
+    assert!(fee_event.is_some(), "fee_updated event not emitted");
+}
+
+#[test]
+fn test_stats_reflects_config_changes() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    client.set_rate_limit(&120);
+    let (_, _, _, cooldown) = client.stats();
+    assert_eq!(cooldown, 120);
+}

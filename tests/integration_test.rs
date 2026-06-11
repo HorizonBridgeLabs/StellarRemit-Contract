@@ -1012,3 +1012,51 @@ fn test_stats_reflects_config_changes() {
     let (_, _, _, cooldown) = client.stats();
     assert_eq!(cooldown, 120);
 }
+
+// ── event data validation tests ─────────────────────────
+
+#[test]
+fn test_withdraw_emits_event_with_correct_data() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&admin, &3_000_000);
+
+    client.withdraw(&admin, &treasury, &1_000_000);
+
+    let events = env.events().all();
+    let withdraw_event = events.iter().find(|(_, topics, _)| {
+        *topics
+            == soroban_sdk::vec![
+                &env,
+                Symbol::new(&env, "withdraw").into_val(&env),
+                admin.clone().into_val(&env),
+            ]
+    });
+    assert!(withdraw_event.is_some(), "withdraw event not emitted");
+
+    let (_, _, data) = withdraw_event.unwrap();
+    let (to, amount): (Address, i128) = data.into_val(&env);
+    assert_eq!(to, treasury);
+    assert_eq!(amount, 1_000_000);
+}
+
+#[test]
+fn test_rate_limit_updated_emits_event_with_correct_data() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    client.set_rate_limit(&120);
+
+    let events = env.events().all();
+    let rate_event = events.iter().find(|(_, topics, _)| {
+        *topics == soroban_sdk::vec![&env, Symbol::new(&env, "rate_limit_updated").into_val(&env),]
+    });
+    assert!(rate_event.is_some(), "rate_limit_updated event not emitted");
+
+    let (_, _, data) = rate_event.unwrap();
+    let cooldown: u64 = data.into_val(&env);
+    assert_eq!(cooldown, 120);
+}

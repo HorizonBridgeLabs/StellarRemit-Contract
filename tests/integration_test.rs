@@ -269,6 +269,36 @@ fn test_escrow_zero_amount_fails() {
 }
 
 #[test]
+fn test_transfer_admin() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let new_admin = Address::generate(&env);
+    client.init(&admin);
+
+    assert_eq!(client.get_admin(), admin);
+
+    client.transfer_admin(&new_admin);
+
+    assert_eq!(client.get_admin(), new_admin);
+
+    // Verify admin_transferred event was emitted
+    let events = env.events().all();
+    let admin_transferred = events.iter().find(|(_, topics, _)| {
+        *topics
+            == soroban_sdk::vec![
+                &env,
+                soroban_sdk::Symbol::new(&env, "admin_transferred").into_val(&env),
+                admin.clone().into_val(&env),
+            ]
+    });
+    assert!(admin_transferred.is_some(), "admin_transferred event not emitted");
+
+    let (_, _, data) = admin_transferred.unwrap();
+    let emitted_admin: Address = data.into_val(&env);
+    assert_eq!(emitted_admin, new_admin);
+}
+
+#[test]
 #[should_panic(expected = "transaction not found")]
 fn test_get_transaction_not_found_panics() {
     let (env, client) = setup();

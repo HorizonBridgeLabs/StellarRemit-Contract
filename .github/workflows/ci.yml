@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  # ── Format ──────────────────────────────────────────────
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - run: cargo fmt --all -- --check
+
+  # ── Clippy (wasm target) ───────────────────────────────
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
+
+  # ── Fast compile check (no codegen) ────────────────────
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - run: cargo check --target wasm32-unknown-unknown
+
+  # ── Tests ───────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - run: cargo test --verbose
+
+  # ── Build (wasm) ────────────────────────────────────────
+  build:
+    name: Build (wasm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - run: cargo build --release --target wasm32-unknown-unknown
+
+  # ── no_std compliance: inspect wasm imports ─────────────
+  no-std:
+    name: no_std check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - run: cargo build --release --target wasm32-unknown-unknown
+
+      - name: Install wabt (wasm-objdump)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq wabt
+
+      - name: Verify no std imports in wasm binary
+        run: |
+          WASM="target/wasm32-unknown-unknown/release/stellarremit_contract.wasm"
+          echo "=== Imported symbols ==="
+          wasm-objdump -j Import -x "$WASM" | tee /tmp/imports.txt
+          echo ""
+          echo "=== Checking for forbidden std symbols ==="
+          FORBIDDEN="__rust_alloc|__rust_realloc|__rust_alloc_zeroed|__rust_dealloc|__rust_print|memcpy|memset|memmove|abort|fmod|fmodf|powi"
+          if grep -qE "$FORBIDDEN" /tmp/imports.txt; then
+            echo "ERROR: std symbols found in wasm binary!"
+            grep -E "$FORBIDDEN" /tmp/imports.txt
+            exit 1
+          fi
+          echo "✓ No std symbols detected — no_std compliance verified"

@@ -87,6 +87,40 @@ bash deploy.sh
 
 ---
 
+## Generating TypeScript Bindings
+
+For frontend integration, generate TypeScript bindings from the deployed contract:
+
+```bash
+# Install the soroban CLI bindings plugin
+cargo install --locked soroban-cli
+
+# Generate bindings for your deployed contract
+soroban contract bindings typescript \
+  --contract-id <CONTRACT_ID> \
+  --output-dir ./bindings \
+  --rpc-url https://soroban-testnet.stellar.org \
+  --network-passphrase "Test SDF Network ; September 2015"
+```
+
+The generated bindings include typed methods for all contract functions, making it easy to integrate with React, Next.js, or any TypeScript frontend.
+
+```typescript
+// Example: using generated bindings in a TypeScript project
+import { Client as RemittanceClient } from './bindings';
+
+const client = new RemittanceClient({
+  contractId: '<CONTRACT_ID>',
+  rpcUrl: 'https://soroban-testnet.stellar.org',
+  networkPassphrase: 'Test SDF Network ; September 2015',
+});
+
+// Now call contract functions with full type safety
+const balance = await client.balance({ addr: userPublicKey });
+```
+
+---
+
 ## CLI Interactions
 
 ```bash

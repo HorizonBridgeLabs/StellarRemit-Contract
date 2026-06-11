@@ -1,0 +1,19 @@
+name: Close Stale Issues
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # daily at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-message: "This issue has been marked as stale due to 60 days of inactivity. It will be closed in 14 days if no further activity occurs."
+          stale-pr-message: "This PR has been marked as stale due to 60 days of inactivity. It will be closed in 14 days if no further activity occurs."
+          exempt-issue-labels: "security,pinned"
+          exempt-pr-labels: "security,pinned"

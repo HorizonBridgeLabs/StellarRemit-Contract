@@ -1,0 +1,11 @@
+# Global owners
+* @HorizonBridgeLabs/core
+
+# CI / workflows
+/.github/ @HorizonBridgeLabs/core
+
+# Contract source
+/src/ @HorizonBridgeLabs/core
+
+# Tests
+/tests/ @HorizonBridgeLabs/core

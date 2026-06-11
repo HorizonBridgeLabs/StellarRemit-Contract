@@ -18,10 +18,9 @@ impl RemittanceContract {
             panic!("already initialized");
         }
         admin.require_auth();
-        // Admin and TxCount use instance() storage: they are contract-scoped singletons
-        // that share the contract instance's ledger entry and are evicted together.
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::TxCount, &0u64);
+        env.storage().instance().set(&DataKey::Paused, &false);
     }
 
     /// Deposit funds into sender's on-chain balance.!!!!!!
@@ -61,6 +60,7 @@ impl RemittanceContract {
         assert!(amount > 0, "Send amount must be greater than zero");
         assert!(sender != recipient, "cannot send to yourself");
         Self::require_not_paused(&env);
+        Self::check_rate_limit(&env, &sender);
 
         // Balance keys use persistent() storage so user funds survive instance eviction.
         let sender_key = DataKey::Balance(sender.clone());
@@ -103,9 +103,10 @@ impl RemittanceContract {
             (id, amount),
         );
         env.events().publish(
-            (Symbol::new(&env, "transfer_completed"), sender),
+            (Symbol::new(&env, "transfer_completed"), sender.clone()),
             (id, recipient),
         );
+        Self::update_last_tx_time(&env, &sender);
         id
     }
 
@@ -122,6 +123,7 @@ impl RemittanceContract {
         assert!(amount > 0, "Escrow amount must be greater than zero");
         assert!(sender != recipient, "cannot escrow to yourself");
         Self::require_not_paused(&env);
+        Self::check_rate_limit(&env, &sender);
 
         // Balance uses persistent storage — survives ledger expiry
         let sender_key = DataKey::Balance(sender.clone());
@@ -155,9 +157,10 @@ impl RemittanceContract {
             .set(&DataKey::Transaction(id), &tx);
 
         env.events().publish(
-            (Symbol::new(&env, "transfer_created"), sender),
+            (Symbol::new(&env, "transfer_created"), sender.clone()),
             (id, amount),
         );
+        Self::update_last_tx_time(&env, &sender);
         id
     }
 
@@ -317,6 +320,32 @@ impl RemittanceContract {
             .unwrap_or(false)
     }
 
+    /// Admin-only: withdraw funds from the contract (e.g., collected fees).
+    /// `from` is the address whose balance to draw from; `to` receives the funds.
+    pub fn withdraw(env: Env, from: Address, to: Address, amount: i128) {
+        Self::require_admin(&env);
+        assert!(amount > 0, "withdraw amount must be greater than zero");
+
+        let from_key = DataKey::Balance(from.clone());
+        let from_bal: i128 = env.storage().persistent().get(&from_key).unwrap_or(0);
+        assert!(from_bal >= amount, "insufficient balance");
+
+        let to_key = DataKey::Balance(to.clone());
+        let to_bal: i128 = env.storage().persistent().get(&to_key).unwrap_or(0);
+
+        env.storage().persistent().set(
+            &from_key,
+            &from_bal.checked_sub(amount).expect("arithmetic overflow"),
+        );
+        env.storage().persistent().set(
+            &to_key,
+            &to_bal.checked_add(amount).expect("arithmetic overflow"),
+        );
+
+        env.events()
+            .publish((Symbol::new(&env, "withdraw"), from), (to, amount));
+    }
+
     /// Read a transaction by ID...
     pub fn get_transaction(env: Env, transaction_id: u64) -> Transaction {
         env.storage()
@@ -364,5 +393,27 @@ impl RemittanceContract {
                 .unwrap_or(false),
             "contract is paused"
         );
+    }
+
+    /// Enforce a cooldown between consecutive send/escrow operations per address.
+    /// Default cooldown: 300 seconds (5 minutes).
+    fn check_rate_limit(env: &Env, addr: &Address) {
+        const COOLDOWN_SECONDS: u64 = 300;
+        let key = DataKey::LastTxTime(addr.clone());
+        let now = env.ledger().timestamp();
+        if let Some(last_time) = env.storage().persistent().get::<DataKey, u64>(&key) {
+            assert!(
+                now >= last_time && now - last_time >= COOLDOWN_SECONDS,
+                "rate limit exceeded — wait before next operation"
+            );
+        }
+    }
+
+    /// Record the last operation timestamp after a successful send or escrow.
+    fn update_last_tx_time(env: &Env, sender: &Address) {
+        let key = DataKey::LastTxTime(sender.clone());
+        env.storage()
+            .persistent()
+            .set(&key, &env.ledger().timestamp());
     }
 }

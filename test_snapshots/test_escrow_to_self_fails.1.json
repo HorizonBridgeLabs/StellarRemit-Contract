@@ -147,6 +147,18 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Paused"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "bool": false
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
                               "symbol": "TxCount"
                             }
                           ]
@@ -457,7 +469,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'cannot escrow to yourself' from contract function 'Symbol(obj#45)'"
+                  "string": "caught panic 'cannot escrow to yourself' from contract function 'Symbol(obj#49)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"

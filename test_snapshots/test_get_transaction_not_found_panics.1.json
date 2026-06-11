@@ -74,6 +74,18 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Paused"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "bool": false
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
                               "symbol": "TxCount"
                             }
                           ]
@@ -237,7 +249,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'transaction not found' from contract function 'Symbol(obj#19)'"
+                  "string": "caught panic 'transaction not found' from contract function 'Symbol(obj#21)'"
                 },
                 {
                   "u64": 999

@@ -147,6 +147,18 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Paused"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "bool": false
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
                               "symbol": "TxCount"
                             }
                           ]
@@ -457,7 +469,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'insufficient balance' from contract function 'Symbol(obj#47)'"
+                  "string": "caught panic 'insufficient balance' from contract function 'Symbol(obj#51)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"

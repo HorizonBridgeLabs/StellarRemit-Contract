@@ -7,6 +7,7 @@ pub enum TransactionStatus {
     Completed,
     Escrowed,
     Released,
+    Cancelled,
 }
 
 #[contracttype]

@@ -311,3 +311,203 @@ fn test_get_transaction_not_found_panics() {
     client.init(&admin);
     client.get_transaction(&999);
 }
+
+// ── cancel_escrow tests ─────────────────────────────────
+
+#[test]
+fn test_cancel_escrow_refunds_sender() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    assert_eq!(client.balance(&sender), 600_000);
+    assert_eq!(client.balance(&recipient), 0);
+
+    client.cancel_escrow(&tx_id);
+
+    // Sender gets refund
+    assert_eq!(client.balance(&sender), 1_000_000);
+    assert_eq!(client.balance(&recipient), 0);
+
+    let tx = client.get_transaction(&tx_id);
+    assert_eq!(tx.status, TransactionStatus::Cancelled);
+}
+
+#[test]
+fn test_cancel_escrow_emits_event() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    client.cancel_escrow(&tx_id);
+
+    let events = env.events().all();
+    let cancelled = events.iter().find(|(_, topics, _)| {
+        *topics
+            == soroban_sdk::vec![
+                &env,
+                Symbol::new(&env, "escrow_cancelled").into_val(&env),
+                sender.clone().into_val(&env),
+            ]
+    });
+    assert!(cancelled.is_some(), "escrow_cancelled event not emitted");
+}
+
+#[test]
+#[should_panic(expected = "not in escrow")]
+fn test_cancel_escrow_fails_on_released() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    client.release_escrow(&tx_id);
+    client.cancel_escrow(&tx_id); // should panic
+}
+
+#[test]
+#[should_panic(expected = "escrow not yet expired")]
+fn test_cancel_escrow_fails_before_expiry() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &10);
+    // expiry has NOT passed — cancellation should panic
+    client.cancel_escrow(&tx_id);
+}
+
+// ── pause / unpause tests ───────────────────────────────
+
+#[test]
+fn test_pause_and_unpause() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    assert!(!client.is_paused());
+
+    client.pause();
+    assert!(client.is_paused());
+
+    client.unpause();
+    assert!(!client.is_paused());
+}
+
+#[test]
+#[should_panic(expected = "contract is paused")]
+fn test_paused_prevents_deposit() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    client.pause();
+    client.deposit(&user, &1_000_000); // should panic
+}
+
+#[test]
+#[should_panic(expected = "contract is paused")]
+fn test_paused_prevents_send() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    client.pause();
+    client.send(&sender, &recipient, &100_000); // should panic
+}
+
+#[test]
+#[should_panic(expected = "contract is paused")]
+fn test_paused_prevents_escrow() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    client.pause();
+    client.escrow_funds(&sender, &recipient, &100_000, &0); // should panic
+}
+
+#[test]
+fn test_release_still_works_when_paused() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+
+    client.pause();
+    assert!(client.is_paused());
+
+    // Release should still work even while paused
+    client.release_escrow(&tx_id);
+    assert_eq!(client.balance(&recipient), 400_000);
+}
+
+#[test]
+#[should_panic(expected = "contract already paused")]
+fn test_double_pause_panics() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    client.pause();
+    client.pause(); // should panic
+}
+
+#[test]
+#[should_panic(expected = "contract not paused")]
+fn test_unpause_when_not_paused_panics() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    client.unpause(); // should panic
+}
+
+// ── sender ≠ recipient tests ────────────────────────────
+
+#[test]
+#[should_panic(expected = "cannot send to yourself")]
+fn test_send_to_self_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&user, &1_000_000);
+    client.send(&user, &user, &100_000); // should panic
+}
+
+#[test]
+#[should_panic(expected = "cannot escrow to yourself")]
+fn test_escrow_to_self_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&user, &1_000_000);
+    client.escrow_funds(&user, &user, &100_000, &0); // should panic
+}

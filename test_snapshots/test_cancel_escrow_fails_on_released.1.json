@@ -863,7 +863,7 @@
                 "bytes": "0000000000000000000000000000000000000000000000000000000000000001"
               },
               {
-                "symbol": "release_escrow"
+                "symbol": "cancel_escrow"
               }
             ],
             "data": {
@@ -949,7 +949,7 @@
                   "string": "contract call failed"
                 },
                 {
-                  "symbol": "release_escrow"
+                  "symbol": "cancel_escrow"
                 },
                 {
                   "vec": [

@@ -28,6 +28,7 @@ impl RemittanceContract {
     /// Returns the new balance after deposit.
     pub fn deposit(env: Env, sender: Address, amount: i128) -> i128 {
         sender.require_auth();
+        Self::require_not_paused(&env);
 
         // Enhanced validation
         assert!(amount > 0, "Deposit amount must be greater than zero");
@@ -58,6 +59,8 @@ impl RemittanceContract {
     pub fn send(env: Env, sender: Address, recipient: Address, amount: i128) -> u64 {
         sender.require_auth();
         assert!(amount > 0, "Send amount must be greater than zero");
+        assert!(sender != recipient, "cannot send to yourself");
+        Self::require_not_paused(&env);
 
         // Balance keys use persistent() storage so user funds survive instance eviction.
         let sender_key = DataKey::Balance(sender.clone());
@@ -117,6 +120,8 @@ impl RemittanceContract {
     ) -> u64 {
         sender.require_auth();
         assert!(amount > 0, "Escrow amount must be greater than zero");
+        assert!(sender != recipient, "cannot escrow to yourself");
+        Self::require_not_paused(&env);
 
         // Balance uses persistent storage — survives ledger expiry
         let sender_key = DataKey::Balance(sender.clone());
@@ -197,6 +202,47 @@ impl RemittanceContract {
         );
     }
 
+    /// Cancel an escrowed transaction and refund the sender.
+    /// Only the original sender (or admin after expiry) can cancel.
+    pub fn cancel_escrow(env: Env, transaction_id: u64) {
+        let key = DataKey::Transaction(transaction_id);
+        let mut tx: Transaction = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .expect("transaction not found");
+
+        assert!(tx.status == TransactionStatus::Escrowed, "not in escrow");
+
+        // Allow cancellation if escrow has expired, or sender wants to cancel
+        if tx.expires_at > 0 {
+            assert!(
+                u64::from(env.ledger().sequence()) > tx.expires_at,
+                "escrow not yet expired"
+            );
+        }
+
+        tx.sender.require_auth();
+
+        // Refund the sender
+        let sender_key = DataKey::Balance(tx.sender.clone());
+        let sender_bal: i128 = env.storage().persistent().get(&sender_key).unwrap_or(0);
+        env.storage().persistent().set(
+            &sender_key,
+            &sender_bal
+                .checked_add(tx.amount)
+                .expect("arithmetic overflow"),
+        );
+
+        tx.status = TransactionStatus::Cancelled;
+        env.storage().persistent().set(&key, &tx);
+
+        env.events().publish(
+            (Symbol::new(&env, "escrow_cancelled"), tx.sender),
+            (transaction_id, tx.amount),
+        );
+    }
+
     /// Read the configured admin address.
     pub fn get_admin(env: Env) -> Address {
         env.storage()
@@ -229,6 +275,48 @@ impl RemittanceContract {
         );
     }
 
+    /// Pause the contract — prevents deposits, sends, and escrows.
+    /// Only callable by admin. Reads and releases still work.
+    pub fn pause(env: Env) {
+        Self::require_admin(&env);
+        assert!(
+            !env.storage()
+                .instance()
+                .get(&DataKey::Paused)
+                .unwrap_or(false),
+            "contract already paused"
+        );
+        env.storage().instance().set(&DataKey::Paused, &true);
+
+        env.events()
+            .publish((Symbol::new(&env, "contract_paused"),), ());
+    }
+
+    /// Unpause the contract — re-enables deposits, sends, and escrows.
+    /// Only callable by admin.
+    pub fn unpause(env: Env) {
+        Self::require_admin(&env);
+        assert!(
+            env.storage()
+                .instance()
+                .get(&DataKey::Paused)
+                .unwrap_or(false),
+            "contract not paused"
+        );
+        env.storage().instance().set(&DataKey::Paused, &false);
+
+        env.events()
+            .publish((Symbol::new(&env, "contract_unpaused"),), ());
+    }
+
+    /// Check whether the contract is currently paused.
+    pub fn is_paused(env: Env) -> bool {
+        env.storage()
+            .instance()
+            .get(&DataKey::Paused)
+            .unwrap_or(false)
+    }
+
     /// Read a transaction by ID...
     pub fn get_transaction(env: Env, transaction_id: u64) -> Transaction {
         env.storage()
@@ -250,14 +338,31 @@ impl RemittanceContract {
         env.storage().instance().get(&DataKey::TxCount).unwrap_or(0)
     }
 
-    // ──__________________ helpers ________________________
+    // ── helpers ───────────────────────────────────────────
 
     fn next_id(env: &Env) -> u64 {
-        // TxCount uses instance() storage: it is a contract-scoped counter that
-        // lives and expires with the contract instance.
         let count: u64 = env.storage().instance().get(&DataKey::TxCount).unwrap_or(0);
         let next = count + 1;
         env.storage().instance().set(&DataKey::TxCount, &next);
         next
+    }
+
+    fn require_admin(env: &Env) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("admin not initialized");
+        admin.require_auth();
+    }
+
+    fn require_not_paused(env: &Env) {
+        assert!(
+            !env.storage()
+                .instance()
+                .get(&DataKey::Paused)
+                .unwrap_or(false),
+            "contract is paused"
+        );
     }
 }

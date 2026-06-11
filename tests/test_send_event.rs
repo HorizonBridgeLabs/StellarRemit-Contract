@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use soroban_sdk::{
-    testutils::{Events, Address as AddressTestUtils},
-    vec, Symbol, IntoVal, Env, Address,
+    testutils::{Address as AddressTestUtils, Events},
+    vec, Address, Env, IntoVal, Symbol,
 };
 use stellarremit_contract::{RemittanceContract, RemittanceContractClient};
 
@@ -34,7 +34,10 @@ fn test_send_emits_transfer_created_event() {
             ]
     });
 
-    assert!(transfer_created.is_some(), "transfer_created event not emitted");
+    assert!(
+        transfer_created.is_some(),
+        "transfer_created event not emitted"
+    );
 
     let (_, _, data) = transfer_created.unwrap();
     let (emitted_id, emitted_amount): (u64, i128) = data.into_val(&env);
@@ -51,7 +54,10 @@ fn test_send_emits_transfer_created_event() {
             ]
     });
 
-    assert!(transfer_completed.is_some(), "transfer_completed event not emitted");
+    assert!(
+        transfer_completed.is_some(),
+        "transfer_completed event not emitted"
+    );
 
     let (_, _, data2) = transfer_completed.unwrap();
     let (emitted_id2, emitted_recipient): (u64, Address) = data2.into_val(&env);

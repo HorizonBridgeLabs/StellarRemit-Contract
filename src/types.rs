@@ -52,37 +52,39 @@ impl DataKey {
     pub fn balance(addr: Address) -> Self {
         Self::Balance(addr)
     }
-    
+
     /// Creates a transaction key for the given transaction ID
     pub fn transaction(id: u64) -> Self {
         Self::Transaction(id)
     }
-    
+
     /// Creates a user metadata key for the given address
     pub fn user_metadata(addr: Address) -> Self {
         Self::UserMetadata(addr)
     }
-    
+
     /// Creates a last transaction time key for rate limiting
     pub fn last_tx_time(addr: Address) -> Self {
         Self::LastTxTime(addr)
     }
-    
+
     /// Checks if this key is for persistent storage (long-term data)
     pub fn is_persistent(&self) -> bool {
         match self {
-            Self::Balance(_) | Self::Transaction(_) | Self::UserMetadata(_) 
-            | Self::TotalSupply | Self::LastTxTime(_) => true,
-            Self::Admin | Self::TxCount | Self::Config | Self::Paused 
-            | Self::FeeConfig => false,
+            Self::Balance(_)
+            | Self::Transaction(_)
+            | Self::UserMetadata(_)
+            | Self::TotalSupply
+            | Self::LastTxTime(_) => true,
+            Self::Admin | Self::TxCount | Self::Config | Self::Paused | Self::FeeConfig => false,
         }
     }
-    
+
     /// Checks if this key is for instance storage (contract-specific data)
     pub fn is_instance(&self) -> bool {
         !self.is_persistent()
     }
-    
+
     /// Returns a human-readable description of the key
     pub fn description(&self) -> &'static str {
         match self {

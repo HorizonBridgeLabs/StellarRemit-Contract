@@ -1,6 +1,9 @@
 #![cfg(test)]
 
-use soroban_sdk::{testutils::{Address as _, Events as _, Ledger as _}, Address, Env, IntoVal, Symbol};
+use soroban_sdk::{
+    testutils::{Address as _, Events as _, Ledger as _},
+    Address, Env, IntoVal, Symbol,
+};
 use stellarremit_contract::{RemittanceContract, RemittanceContractClient, TransactionStatus};
 
 fn setup() -> (Env, RemittanceContractClient<'static>) {
@@ -206,7 +209,6 @@ fn test_release_escrow_emits_transfer_completed_event() {
     );
 }
 
-
 #[test]
 #[should_panic(expected = "escrow expired")]
 fn test_escrow_expiry_prevents_release() {
@@ -291,7 +293,10 @@ fn test_transfer_admin() {
                 admin.clone().into_val(&env),
             ]
     });
-    assert!(admin_transferred.is_some(), "admin_transferred event not emitted");
+    assert!(
+        admin_transferred.is_some(),
+        "admin_transferred event not emitted"
+    );
 
     let (_, _, data) = admin_transferred.unwrap();
     let emitted_admin: Address = data.into_val(&env);

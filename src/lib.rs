@@ -3,7 +3,7 @@
 mod types;
 
 use soroban_sdk::{contract, contractimpl, Address, Env, Symbol};
-use types::{DataKey, Transaction, TransactionStatus};
+use types::{DataKey, Transaction};
 
 pub use types::TransactionStatus;
 
@@ -28,12 +28,15 @@ impl RemittanceContract {
     /// Returns the new balance after deposit.
     pub fn deposit(env: Env, sender: Address, amount: i128) -> i128 {
         sender.require_auth();
-        
+
         // Enhanced validation
         assert!(amount > 0, "Deposit amount must be greater than zero");
         const MIN_DEPOSIT: i128 = 1_000_000; // Minimum deposit amount (0.000001 XLM equivalent)
-        assert!(amount >= MIN_DEPOSIT, "amount below minimum deposit threshold");
-        
+        assert!(
+            amount >= MIN_DEPOSIT,
+            "amount below minimum deposit threshold"
+        );
+
         // Balance uses persistent() storage: per-address data must survive
         // beyond the contract instance's TTL and be independently renewable.
         let key = DataKey::Balance(sender.clone());
@@ -41,13 +44,13 @@ impl RemittanceContract {
         let balance: i128 = env.storage().persistent().get(&key).unwrap_or(0);
         let new_balance = balance.checked_add(amount).expect("arithmetic overflow");
         env.storage().persistent().set(&key, &new_balance);
-        
+
         // Emit deposit event for tracking
         env.events().publish(
             (Symbol::new(&env, "deposit"), sender.clone()),
             (amount, new_balance),
         );
-        
+
         new_balance
     }
 
@@ -65,12 +68,16 @@ impl RemittanceContract {
         let recipient_key = DataKey::Balance(recipient.clone());
         let recipient_bal: i128 = env.storage().persistent().get(&recipient_key).unwrap_or(0);
 
-        env.storage()
-            .persistent()
-            .set(&sender_key, &sender_bal.checked_sub(amount).expect("arithmetic overflow"));
-        env.storage()
-            .persistent()
-            .set(&recipient_key, &recipient_bal.checked_add(amount).expect("arithmetic overflow"));
+        env.storage().persistent().set(
+            &sender_key,
+            &sender_bal.checked_sub(amount).expect("arithmetic overflow"),
+        );
+        env.storage().persistent().set(
+            &recipient_key,
+            &recipient_bal
+                .checked_add(amount)
+                .expect("arithmetic overflow"),
+        );
 
         let id = Self::next_id(&env);
         let timestamp = env.ledger().timestamp();
@@ -84,7 +91,9 @@ impl RemittanceContract {
             expires_at: 0,
         };
         // Transaction uses persistent storage — survives ledger expiry
-        env.storage().persistent().set(&DataKey::Transaction(id), &tx);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Transaction(id), &tx);
 
         env.events().publish(
             (Symbol::new(&env, "transfer_created"), sender.clone()),
@@ -99,7 +108,13 @@ impl RemittanceContract {
 
     /// Lock funds in escrow pending release.
     /// `expiry_ledgers`: number of ledgers until escrow expires (0 = no expiry).
-    pub fn escrow_funds(env: Env, sender: Address, recipient: Address, amount: i128, expiry_ledgers: u32) -> u64 {
+    pub fn escrow_funds(
+        env: Env,
+        sender: Address,
+        recipient: Address,
+        amount: i128,
+        expiry_ledgers: u32,
+    ) -> u64 {
         sender.require_auth();
         assert!(amount > 0, "Escrow amount must be greater than zero");
 
@@ -108,9 +123,10 @@ impl RemittanceContract {
         let sender_bal: i128 = env.storage().persistent().get(&sender_key).unwrap_or(0);
         assert!(sender_bal >= amount, "insufficient balance");
 
-        env.storage()
-            .persistent()
-            .set(&sender_key, &sender_bal.checked_sub(amount).expect("arithmetic overflow"));
+        env.storage().persistent().set(
+            &sender_key,
+            &sender_bal.checked_sub(amount).expect("arithmetic overflow"),
+        );
 
         let id = Self::next_id(&env);
         let timestamp = env.ledger().timestamp();
@@ -129,7 +145,9 @@ impl RemittanceContract {
             expires_at,
         };
         // Transaction uses persistent storage — survives ledger expiry
-        env.storage().persistent().set(&DataKey::Transaction(id), &tx);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Transaction(id), &tx);
 
         env.events().publish(
             (Symbol::new(&env, "transfer_created"), sender),
@@ -148,10 +166,7 @@ impl RemittanceContract {
             .get(&key)
             .expect("transaction not found");
 
-        assert!(
-            tx.status == TransactionStatus::Escrowed,
-            "not in escrow"
-        );
+        assert!(tx.status == TransactionStatus::Escrowed, "not in escrow");
 
         // Expiry check: if expires_at is set, current ledger must not exceed it
         if tx.expires_at > 0 {
@@ -166,9 +181,12 @@ impl RemittanceContract {
         // Balance uses persistent storage — survives ledger expiry
         let recipient_key = DataKey::Balance(tx.recipient.clone());
         let recipient_bal: i128 = env.storage().persistent().get(&recipient_key).unwrap_or(0);
-        env.storage()
-            .persistent()
-            .set(&recipient_key, &recipient_bal.checked_add(tx.amount).expect("arithmetic overflow"));
+        env.storage().persistent().set(
+            &recipient_key,
+            &recipient_bal
+                .checked_add(tx.amount)
+                .expect("arithmetic overflow"),
+        );
 
         tx.status = TransactionStatus::Released;
         env.storage().persistent().set(&key, &tx);
@@ -237,11 +255,7 @@ impl RemittanceContract {
     fn next_id(env: &Env) -> u64 {
         // TxCount uses instance() storage: it is a contract-scoped counter that
         // lives and expires with the contract instance.
-        let count: u64 = env
-            .storage()
-            .instance()
-            .get(&DataKey::TxCount)
-            .unwrap_or(0);
+        let count: u64 = env.storage().instance().get(&DataKey::TxCount).unwrap_or(0);
         let next = count + 1;
         env.storage().instance().set(&DataKey::TxCount, &next);
         next

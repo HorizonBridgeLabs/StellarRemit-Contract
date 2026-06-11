@@ -1,5 +1,14 @@
 use soroban_sdk::{contracttype, Address};
 
+/// Fee configuration: fee in basis points (1 bps = 0.01%) and treasury address.
+/// Max fee: 10_000 bps (100%). Default: 0 bps (no fee).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FeeConfig {
+    pub fee_bps: u32,
+    pub treasury: Address,
+}
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TransactionStatus {

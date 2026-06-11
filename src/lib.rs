@@ -3,7 +3,7 @@
 mod types;
 
 use soroban_sdk::{contract, contractimpl, Address, Env, Symbol};
-use types::{DataKey, Transaction};
+use types::{DataKey, FeeConfig, Transaction};
 
 pub use types::TransactionStatus;
 
@@ -66,6 +66,12 @@ impl RemittanceContract {
         Self::require_not_paused(&env);
         Self::check_rate_limit(&env, &sender);
 
+        let (net_amount, fee_amount) = Self::compute_fee(&env, amount);
+        assert!(
+            net_amount > 0,
+            "fee exceeds transfer amount — recipient would receive zero"
+        );
+
         // Balance keys use persistent() storage so user funds survive instance eviction.
         let sender_key = DataKey::Balance(sender.clone());
         // Balance uses persistent storage — survives ledger expiry
@@ -82,9 +88,12 @@ impl RemittanceContract {
         env.storage().persistent().set(
             &recipient_key,
             &recipient_bal
-                .checked_add(amount)
+                .checked_add(net_amount)
                 .expect("arithmetic overflow"),
         );
+
+        // Divert fee to treasury if applicable
+        Self::credit_treasury(&env, fee_amount);
 
         let id = Self::next_id(&env);
         let timestamp = env.ledger().timestamp();
@@ -190,15 +199,23 @@ impl RemittanceContract {
 
         tx.sender.require_auth();
 
+        let (net_amount, fee_amount) = Self::compute_fee(&env, tx.amount);
+        assert!(
+            net_amount > 0,
+            "fee exceeds escrow amount — recipient would receive zero"
+        );
+
         // Balance uses persistent storage — survives ledger expiry
         let recipient_key = DataKey::Balance(tx.recipient.clone());
         let recipient_bal: i128 = env.storage().persistent().get(&recipient_key).unwrap_or(0);
         env.storage().persistent().set(
             &recipient_key,
             &recipient_bal
-                .checked_add(tx.amount)
+                .checked_add(net_amount)
                 .expect("arithmetic overflow"),
         );
+
+        Self::credit_treasury(&env, fee_amount);
 
         tx.status = TransactionStatus::Released;
         env.storage().persistent().set(&key, &tx);
@@ -390,6 +407,39 @@ impl RemittanceContract {
         env.storage().instance().get(&DataKey::TxCount).unwrap_or(0)
     }
 
+    /// Admin-only: configure the fee (basis points) and treasury address.
+    /// Set fee_bps to 0 to disable fees. Max: 10_000 bps (100%).
+    pub fn set_fee(env: Env, fee_bps: u32, treasury: Address) {
+        Self::require_admin(&env);
+        assert!(fee_bps <= 10_000, "fee basis points must not exceed 10_000");
+
+        let config = FeeConfig {
+            fee_bps,
+            treasury: treasury.clone(),
+        };
+        env.storage().instance().set(&DataKey::FeeConfig, &config);
+
+        env.events()
+            .publish((Symbol::new(&env, "fee_updated"),), (fee_bps, treasury));
+    }
+
+    /// Read the current fee configuration.
+    pub fn get_fee(env: Env) -> FeeConfig {
+        if env.storage().instance().has(&DataKey::FeeConfig) {
+            env.storage().instance().get(&DataKey::FeeConfig).unwrap()
+        } else {
+            let admin: Address = env
+                .storage()
+                .instance()
+                .get(&DataKey::Admin)
+                .expect("admin not initialized");
+            FeeConfig {
+                fee_bps: 0,
+                treasury: admin,
+            }
+        }
+    }
+
     // ── helpers ───────────────────────────────────────────
 
     fn next_id(env: &Env) -> u64 {
@@ -446,5 +496,41 @@ impl RemittanceContract {
         env.storage()
             .persistent()
             .set(&key, &env.ledger().timestamp());
+    }
+
+    /// Compute the net amount after fee and the fee amount itself.
+    /// Returns (net_to_recipient, fee_to_treasury).
+    fn compute_fee(env: &Env, amount: i128) -> (i128, i128) {
+        if !env.storage().instance().has(&DataKey::FeeConfig) {
+            return (amount, 0);
+        }
+        let config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+        if config.fee_bps == 0 {
+            return (amount, 0);
+        }
+        let fee_amount = amount
+            .checked_mul(config.fee_bps as i128)
+            .expect("arithmetic overflow")
+            / 10_000i128;
+        // Ensure at least 1 stroop fee if fee_bps > 0 but fee rounds to 0
+        let fee_amount = if fee_amount == 0 { 1 } else { fee_amount };
+        let net_amount = amount.checked_sub(fee_amount).expect("arithmetic overflow");
+        (net_amount, fee_amount)
+    }
+
+    /// Credit the treasury with a fee amount if non-zero.
+    fn credit_treasury(env: &Env, fee_amount: i128) {
+        if fee_amount == 0 || !env.storage().instance().has(&DataKey::FeeConfig) {
+            return;
+        }
+        let config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+        let treasury_key = DataKey::Balance(config.treasury);
+        let treasury_bal: i128 = env.storage().persistent().get(&treasury_key).unwrap_or(0);
+        env.storage().persistent().set(
+            &treasury_key,
+            &treasury_bal
+                .checked_add(fee_amount)
+                .expect("arithmetic overflow"),
+        );
     }
 }

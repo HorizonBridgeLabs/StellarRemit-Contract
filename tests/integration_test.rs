@@ -705,3 +705,122 @@ fn test_custom_rate_limit_still_enforced() {
     // Immediate second send should still fail
     client.send(&sender, &recipient, &200_000);
 }
+
+// ── fee tests ───────────────────────────────────────────
+
+#[test]
+fn test_default_fee_is_zero() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    let fee = client.get_fee();
+    assert_eq!(fee.fee_bps, 0);
+}
+
+#[test]
+fn test_set_and_get_fee() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+
+    client.set_fee(&250, &treasury); // 2.5%
+
+    let fee = client.get_fee();
+    assert_eq!(fee.fee_bps, 250);
+    assert_eq!(fee.treasury, treasury);
+}
+
+#[test]
+fn test_fee_deducted_on_send() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    // 10% fee (1000 bps)
+    client.set_fee(&1000, &treasury);
+
+    // Send 200k: fee=20k, recipient gets 180k
+    client.send(&sender, &recipient, &200_000);
+
+    assert_eq!(client.balance(&sender), 800_000);
+    assert_eq!(client.balance(&recipient), 180_000);
+    assert_eq!(client.balance(&treasury), 20_000);
+}
+
+#[test]
+fn test_fee_deducted_on_escrow_release() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    // 5% fee (500 bps)
+    client.set_fee(&500, &treasury);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    assert_eq!(client.balance(&sender), 600_000);
+
+    client.release_escrow(&tx_id);
+
+    // fee=20k, recipient gets 380k
+    assert_eq!(client.balance(&recipient), 380_000);
+    assert_eq!(client.balance(&treasury), 20_000);
+}
+
+#[test]
+fn test_cancel_escrow_refunds_full_no_fee() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    // 10% fee — but cancel should NOT charge fee
+    client.set_fee(&1000, &treasury);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    client.cancel_escrow(&tx_id);
+
+    // Sender gets full refund, treasury gets nothing
+    assert_eq!(client.balance(&sender), 1_000_000);
+    assert_eq!(client.balance(&treasury), 0);
+}
+
+#[test]
+#[should_panic(expected = "fee exceeds transfer amount")]
+fn test_fee_exceeds_amount_panics() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    // 100% fee (10000 bps) — recipient gets 0
+    client.set_fee(&10000, &treasury);
+
+    client.send(&sender, &recipient, &100_000); // should panic
+}
+
+#[test]
+#[should_panic(expected = "fee basis points must not exceed 10_000")]
+fn test_set_fee_exceeds_max_panics() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+
+    client.set_fee(&10001, &treasury); // should panic
+}

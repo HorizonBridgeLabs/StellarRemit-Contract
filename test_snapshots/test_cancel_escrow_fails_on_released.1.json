@@ -958,7 +958,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'not in escrow' from contract function 'Symbol(obj#155)'"
+                  "string": "caught panic 'not in escrow' from contract function 'Symbol(obj#167)'"
                 },
                 {
                   "u64": 1

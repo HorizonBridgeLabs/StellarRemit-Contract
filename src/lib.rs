@@ -408,6 +408,28 @@ impl RemittanceContract {
         soroban_sdk::String::from_str(&env, "1.1.0")
     }
 
+    /// Return aggregate contract statistics in a single call.
+    /// Returns (tx_count, total_supply, is_paused, rate_limit_cooldown).
+    pub fn stats(env: Env) -> (u64, i128, bool, u64) {
+        let tx_count: u64 = env.storage().instance().get(&DataKey::TxCount).unwrap_or(0);
+        let supply: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::TotalSupply)
+            .unwrap_or(0);
+        let paused: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::Paused)
+            .unwrap_or(false);
+        let cooldown: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::Config)
+            .unwrap_or(300);
+        (tx_count, supply, paused, cooldown)
+    }
+
     /// Store arbitrary user metadata (e.g., KYC status, profile info).
     /// Only the user themselves can set their own metadata.
     pub fn set_user_metadata(

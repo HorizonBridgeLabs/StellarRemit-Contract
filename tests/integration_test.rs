@@ -917,3 +917,28 @@ fn test_get_user_metadata_returns_none_for_new_user() {
     let result = client.get_user_metadata(&user);
     assert!(result.is_none());
 }
+
+#[test]
+fn test_version_returns_string() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    let version = client.version();
+    assert!(version.len() > 0);
+}
+
+#[test]
+fn test_stats_returns_aggregate_data() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&user, &5_000_000);
+
+    let (tx_count, supply, paused, cooldown) = client.stats();
+    assert_eq!(tx_count, 0);
+    assert_eq!(supply, 5_000_000);
+    assert!(!paused);
+    assert_eq!(cooldown, 300);
+}

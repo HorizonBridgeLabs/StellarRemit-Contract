@@ -824,3 +824,65 @@ fn test_set_fee_exceeds_max_panics() {
 
     client.set_fee(&10001, &treasury); // should panic
 }
+
+// ── total supply tests ──────────────────────────────────
+
+#[test]
+fn test_total_supply_starts_at_zero() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    assert_eq!(client.total_supply(), 0);
+}
+
+#[test]
+fn test_total_supply_tracks_deposits() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    client.deposit(&user, &1_000_000);
+    assert_eq!(client.total_supply(), 1_000_000);
+
+    client.deposit(&user, &2_000_000);
+    assert_eq!(client.total_supply(), 3_000_000);
+}
+
+#[test]
+fn test_total_supply_decreases_on_withdraw() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+
+    client.deposit(&admin, &5_000_000);
+    assert_eq!(client.total_supply(), 5_000_000);
+
+    client.withdraw(&admin, &treasury, &1_000_000);
+    assert_eq!(client.total_supply(), 4_000_000);
+}
+
+// ── TTL extension tests ─────────────────────────────────
+
+#[test]
+fn test_extend_ttl_succeeds() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+    client.send(&sender, &recipient, &200_000);
+
+    // Extend all persistent entries by 5000 ledgers
+    client.extend_ttl(&5000);
+
+    // Verify the event was emitted
+    let events = env.events().all();
+    let ttl_event = events.iter().find(|(_, topics, _)| {
+        *topics == soroban_sdk::vec![&env, Symbol::new(&env, "ttl_extended").into_val(&env),]
+    });
+    assert!(ttl_event.is_some(), "ttl_extended event not emitted");
+}

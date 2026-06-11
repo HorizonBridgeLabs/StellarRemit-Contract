@@ -25,6 +25,9 @@ impl RemittanceContract {
         env.storage()
             .instance()
             .set(&DataKey::Config, &DEFAULT_COOLDOWN);
+        env.storage()
+            .persistent()
+            .set(&DataKey::TotalSupply, &0i128);
     }
 
     /// Deposit funds into sender's on-chain balance.!!!!!!
@@ -54,6 +57,9 @@ impl RemittanceContract {
             (Symbol::new(&env, "deposit"), sender.clone()),
             (amount, new_balance),
         );
+
+        // Track total supply
+        Self::add_supply(&env, amount);
 
         new_balance
     }
@@ -382,8 +388,48 @@ impl RemittanceContract {
             &to_bal.checked_add(amount).expect("arithmetic overflow"),
         );
 
+        // Track total supply deduction
+        Self::sub_supply(&env, amount);
+
         env.events()
             .publish((Symbol::new(&env, "withdraw"), from), (to, amount));
+    }
+
+    /// Read the total supply of funds held in the contract.
+    pub fn total_supply(env: Env) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::TotalSupply)
+            .unwrap_or(0)
+    }
+
+    /// Admin-only: extend the TTL (time-to-live) of core persistent entries.
+    /// Bumps ledger entry lifetimes by `ledgers` ledgers for TotalSupply
+    /// and all stored Transaction entries. Call periodically to prevent
+    /// ledger eviction of persistent data.
+    pub fn extend_ttl(env: Env, ledgers: u32) {
+        Self::require_admin(&env);
+        assert!(ledgers > 0, "ledgers must be greater than zero");
+        let threshold = ledgers;
+
+        // Extend TotalSupply entry
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::TotalSupply, threshold, threshold);
+
+        // Extend all stored transaction entries
+        let count: u64 = env.storage().instance().get(&DataKey::TxCount).unwrap_or(0);
+        for id in 1..=count {
+            let key = DataKey::Transaction(id);
+            if env.storage().persistent().has(&key) {
+                env.storage()
+                    .persistent()
+                    .extend_ttl(&key, threshold, threshold);
+            }
+        }
+
+        env.events()
+            .publish((Symbol::new(&env, "ttl_extended"),), ledgers);
     }
 
     /// Read a transaction by ID...
@@ -531,6 +577,30 @@ impl RemittanceContract {
             &treasury_bal
                 .checked_add(fee_amount)
                 .expect("arithmetic overflow"),
+        );
+    }
+
+    fn add_supply(env: &Env, amount: i128) {
+        let supply: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::TotalSupply)
+            .unwrap_or(0);
+        env.storage().persistent().set(
+            &DataKey::TotalSupply,
+            &supply.checked_add(amount).expect("arithmetic overflow"),
+        );
+    }
+
+    fn sub_supply(env: &Env, amount: i128) {
+        let supply: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::TotalSupply)
+            .unwrap_or(0);
+        env.storage().persistent().set(
+            &DataKey::TotalSupply,
+            &supply.checked_sub(amount).expect("arithmetic overflow"),
         );
     }
 }

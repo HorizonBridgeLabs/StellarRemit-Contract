@@ -30,7 +30,7 @@ impl RemittanceContract {
             .set(&DataKey::TotalSupply, &0i128);
     }
 
-    /// Deposit funds into sender's on-chain balance.!!!!!!
+    /// Deposit funds into sender's on-chain balance.
     /// Returns the new balance after deposit.
     pub fn deposit(env: Env, sender: Address, amount: i128) -> i128 {
         sender.require_auth();
@@ -403,6 +403,11 @@ impl RemittanceContract {
             .unwrap_or(0)
     }
 
+    /// Return the contract version string.
+    pub fn version(env: Env) -> soroban_sdk::String {
+        soroban_sdk::String::from_str(&env, "1.1.0")
+    }
+
     /// Store arbitrary user metadata (e.g., KYC status, profile info).
     /// Only the user themselves can set their own metadata.
     pub fn set_user_metadata(
@@ -459,7 +464,7 @@ impl RemittanceContract {
             .publish((Symbol::new(&env, "ttl_extended"),), ledgers);
     }
 
-    /// Read a transaction by ID...
+    /// Read a transaction by ID.
     pub fn get_transaction(env: Env, transaction_id: u64) -> Transaction {
         env.storage()
             .persistent()

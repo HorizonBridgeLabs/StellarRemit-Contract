@@ -91,6 +91,8 @@ bash deploy.sh
 | `extend_ttl(ledgers)` | admin | Extend persistent storage TTL |
 | `set_user_metadata(user, key, value)` | user | Store per-user metadata |
 | `get_user_metadata(user)` | — | Read user metadata |
+| `version()` | — | Return contract version string |
+| `stats()` | — | Aggregate (tx_count, supply, paused, cooldown) |
 
 ---
 

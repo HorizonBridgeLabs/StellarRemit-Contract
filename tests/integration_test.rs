@@ -121,6 +121,18 @@ fn test_tx_count() {
     assert_eq!(first_tx_id, 1);
     assert_eq!(client.tx_count(), 1);
 
+    // Advance time past rate limit cooldown
+    env.ledger().set(soroban_sdk::testutils::LedgerInfo {
+        timestamp: env.ledger().timestamp() + 301,
+        protocol_version: env.ledger().protocol_version(),
+        sequence_number: env.ledger().sequence() + 50,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+
     let second_tx_id = client.escrow_funds(&sender, &recipient, &1_000_000, &0);
     assert_eq!(second_tx_id, 2);
     assert_eq!(client.tx_count(), 2);
@@ -310,4 +322,505 @@ fn test_get_transaction_not_found_panics() {
     let admin = Address::generate(&env);
     client.init(&admin);
     client.get_transaction(&999);
+}
+
+// ── cancel_escrow tests ─────────────────────────────────
+
+#[test]
+fn test_cancel_escrow_refunds_sender() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    assert_eq!(client.balance(&sender), 600_000);
+    assert_eq!(client.balance(&recipient), 0);
+
+    client.cancel_escrow(&tx_id);
+
+    // Sender gets refund
+    assert_eq!(client.balance(&sender), 1_000_000);
+    assert_eq!(client.balance(&recipient), 0);
+
+    let tx = client.get_transaction(&tx_id);
+    assert_eq!(tx.status, TransactionStatus::Cancelled);
+}
+
+#[test]
+fn test_cancel_escrow_emits_event() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    client.cancel_escrow(&tx_id);
+
+    let events = env.events().all();
+    let cancelled = events.iter().find(|(_, topics, _)| {
+        *topics
+            == soroban_sdk::vec![
+                &env,
+                Symbol::new(&env, "escrow_cancelled").into_val(&env),
+                sender.clone().into_val(&env),
+            ]
+    });
+    assert!(cancelled.is_some(), "escrow_cancelled event not emitted");
+}
+
+#[test]
+#[should_panic(expected = "not in escrow")]
+fn test_cancel_escrow_fails_on_released() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    client.release_escrow(&tx_id);
+    client.cancel_escrow(&tx_id); // should panic
+}
+
+#[test]
+#[should_panic(expected = "escrow not yet expired")]
+fn test_cancel_escrow_fails_before_expiry() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &10);
+    // expiry has NOT passed — cancellation should panic
+    client.cancel_escrow(&tx_id);
+}
+
+// ── pause / unpause tests ───────────────────────────────
+
+#[test]
+fn test_pause_and_unpause() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    assert!(!client.is_paused());
+
+    client.pause();
+    assert!(client.is_paused());
+
+    client.unpause();
+    assert!(!client.is_paused());
+}
+
+#[test]
+#[should_panic(expected = "contract is paused")]
+fn test_paused_prevents_deposit() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    client.pause();
+    client.deposit(&user, &1_000_000); // should panic
+}
+
+#[test]
+#[should_panic(expected = "contract is paused")]
+fn test_paused_prevents_send() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    client.pause();
+    client.send(&sender, &recipient, &100_000); // should panic
+}
+
+#[test]
+#[should_panic(expected = "contract is paused")]
+fn test_paused_prevents_escrow() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    client.pause();
+    client.escrow_funds(&sender, &recipient, &100_000, &0); // should panic
+}
+
+#[test]
+fn test_release_still_works_when_paused() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+
+    client.pause();
+    assert!(client.is_paused());
+
+    // Release should still work even while paused
+    client.release_escrow(&tx_id);
+    assert_eq!(client.balance(&recipient), 400_000);
+}
+
+#[test]
+#[should_panic(expected = "contract already paused")]
+fn test_double_pause_panics() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    client.pause();
+    client.pause(); // should panic
+}
+
+#[test]
+#[should_panic(expected = "contract not paused")]
+fn test_unpause_when_not_paused_panics() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    client.unpause(); // should panic
+}
+
+// ── sender ≠ recipient tests ────────────────────────────
+
+#[test]
+#[should_panic(expected = "cannot send to yourself")]
+fn test_send_to_self_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&user, &1_000_000);
+    client.send(&user, &user, &100_000); // should panic
+}
+
+#[test]
+#[should_panic(expected = "cannot escrow to yourself")]
+fn test_escrow_to_self_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&user, &1_000_000);
+    client.escrow_funds(&user, &user, &100_000, &0); // should panic
+}
+
+// ── rate limit tests ────────────────────────────────────
+
+#[test]
+fn test_rate_limit_allows_first_operation() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+
+    // First operation should succeed — no prior timestamp
+    let tx_id = client.send(&sender, &recipient, &500_000);
+    assert!(tx_id > 0);
+}
+
+#[test]
+#[should_panic(expected = "rate limit exceeded")]
+fn test_rate_limit_blocks_rapid_operations() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+
+    client.send(&sender, &recipient, &500_000);
+    // Immediate second send should fail — rate limited
+    client.send(&sender, &recipient, &500_000);
+}
+
+#[test]
+fn test_rate_limit_allows_after_cooldown() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+
+    client.send(&sender, &recipient, &500_000);
+
+    // Advance time past 300s cooldown
+    env.ledger().set(soroban_sdk::testutils::LedgerInfo {
+        timestamp: env.ledger().timestamp() + 301,
+        protocol_version: env.ledger().protocol_version(),
+        sequence_number: env.ledger().sequence() + 50,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+
+    // Should succeed after cooldown
+    let tx_id = client.send(&sender, &recipient, &200_000);
+    assert!(tx_id > 0);
+}
+
+// ── withdraw tests ──────────────────────────────────────
+
+#[test]
+fn test_withdraw_moves_funds() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+
+    // Deposit into admin like a fee collection
+    client.deposit(&admin, &5_000_000);
+
+    client.withdraw(&admin, &treasury, &1_000_000);
+
+    assert_eq!(client.balance(&admin), 4_000_000);
+    assert_eq!(client.balance(&treasury), 1_000_000);
+}
+
+#[test]
+#[should_panic(expected = "rate limit exceeded")]
+fn test_rate_limit_blocks_rapid_escrow() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+
+    client.escrow_funds(&sender, &recipient, &500_000, &0);
+    // Immediate second escrow should fail — rate limited
+    client.escrow_funds(&sender, &recipient, &500_000, &0);
+}
+
+#[test]
+#[should_panic(expected = "insufficient balance")]
+fn test_withdraw_insufficient_balance() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+
+    client.withdraw(&admin, &treasury, &1_000_000); // no balance — should panic
+}
+
+// ── configurable rate limit tests ───────────────────────
+
+#[test]
+fn test_default_rate_limit_is_300() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    assert_eq!(client.get_rate_limit(), 300);
+}
+
+#[test]
+fn test_set_rate_limit_changes_cooldown() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+
+    // Reduce cooldown to 10 seconds
+    client.set_rate_limit(&10);
+    assert_eq!(client.get_rate_limit(), 10);
+
+    // First operation
+    client.send(&sender, &recipient, &500_000);
+
+    // Advance time just 11 seconds — should pass with shorter cooldown
+    env.ledger().set(soroban_sdk::testutils::LedgerInfo {
+        timestamp: env.ledger().timestamp() + 11,
+        protocol_version: env.ledger().protocol_version(),
+        sequence_number: env.ledger().sequence() + 10,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+
+    let tx_id = client.send(&sender, &recipient, &200_000);
+    assert!(tx_id > 0);
+}
+
+#[test]
+fn test_disable_rate_limit_with_zero() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+
+    // Disable rate limiting
+    client.set_rate_limit(&0);
+    assert_eq!(client.get_rate_limit(), 0);
+
+    // Back-to-back sends should work without cooldown
+    client.send(&sender, &recipient, &500_000);
+    client.send(&sender, &recipient, &200_000);
+}
+
+#[test]
+#[should_panic(expected = "rate limit exceeded")]
+fn test_custom_rate_limit_still_enforced() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+
+    // Set a longer cooldown
+    client.set_rate_limit(&600);
+
+    client.send(&sender, &recipient, &500_000);
+    // Immediate second send should still fail
+    client.send(&sender, &recipient, &200_000);
+}
+
+// ── fee tests ───────────────────────────────────────────
+
+#[test]
+fn test_default_fee_is_zero() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    let fee = client.get_fee();
+    assert_eq!(fee.fee_bps, 0);
+}
+
+#[test]
+fn test_set_and_get_fee() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+
+    client.set_fee(&250, &treasury); // 2.5%
+
+    let fee = client.get_fee();
+    assert_eq!(fee.fee_bps, 250);
+    assert_eq!(fee.treasury, treasury);
+}
+
+#[test]
+fn test_fee_deducted_on_send() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    // 10% fee (1000 bps)
+    client.set_fee(&1000, &treasury);
+
+    // Send 200k: fee=20k, recipient gets 180k
+    client.send(&sender, &recipient, &200_000);
+
+    assert_eq!(client.balance(&sender), 800_000);
+    assert_eq!(client.balance(&recipient), 180_000);
+    assert_eq!(client.balance(&treasury), 20_000);
+}
+
+#[test]
+fn test_fee_deducted_on_escrow_release() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    // 5% fee (500 bps)
+    client.set_fee(&500, &treasury);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    assert_eq!(client.balance(&sender), 600_000);
+
+    client.release_escrow(&tx_id);
+
+    // fee=20k, recipient gets 380k
+    assert_eq!(client.balance(&recipient), 380_000);
+    assert_eq!(client.balance(&treasury), 20_000);
+}
+
+#[test]
+fn test_cancel_escrow_refunds_full_no_fee() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    // 10% fee — but cancel should NOT charge fee
+    client.set_fee(&1000, &treasury);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    client.cancel_escrow(&tx_id);
+
+    // Sender gets full refund, treasury gets nothing
+    assert_eq!(client.balance(&sender), 1_000_000);
+    assert_eq!(client.balance(&treasury), 0);
+}
+
+#[test]
+#[should_panic(expected = "fee exceeds transfer amount")]
+fn test_fee_exceeds_amount_panics() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    // 100% fee (10000 bps) — recipient gets 0
+    client.set_fee(&10000, &treasury);
+
+    client.send(&sender, &recipient, &100_000); // should panic
+}
+
+#[test]
+#[should_panic(expected = "fee basis points must not exceed 10_000")]
+fn test_set_fee_exceeds_max_panics() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.init(&admin);
+
+    client.set_fee(&10001, &treasury); // should panic
 }

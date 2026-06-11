@@ -70,11 +70,19 @@ bash deploy.sh
 |---|---|---|
 | `init(admin)` | admin | Initialize contract, set admin |
 | `deposit(sender, amount)` | sender | Add funds to on-chain balance |
-| `send(sender, recipient, amount)` | sender | Instant transfer, emits 2 events |
-| `escrow_funds(sender, recipient, amount)` | sender | Lock funds pending release |
-| `release_escrow(transaction_id)` | sender | Release escrowed funds to recipient |
-| `get_transaction(id)` | — | Read transaction by ID |
+| `send(sender, recipient, amount)` | sender | Instant transfer (rate-limited, paused-guarded) |
+| `escrow_funds(sender, recipient, amount, expiry_ledgers)` | sender | Lock funds pending release (rate-limited) |
+| `release_escrow(tx_id)` | sender | Release escrowed funds to recipient |
+| `cancel_escrow(tx_id)` | sender | Cancel escrow and refund sender (only after expiry) |
+| `transfer_admin(new_admin)` | admin | Transfer admin rights |
+| `pause()` | admin | Pause deposits, sends, and escrows |
+| `unpause()` | admin | Resume operations |
+| `withdraw(from, to, amount)` | admin | Admin withdraw from any balance |
+| `get_admin()` | — | Read current admin address |
+| `get_transaction(tx_id)` | — | Read transaction by ID |
 | `balance(addr)` | — | Read address balance |
+| `tx_count()` | — | Read total transaction count |
+| `is_paused()` | — | Check if contract is paused |
 
 ---
 
@@ -82,8 +90,14 @@ bash deploy.sh
 
 | Event | Emitted by | Data |
 |---|---|---|
+| `deposit` | `deposit` | `(amount, new_balance)` |
 | `transfer_created` | `send`, `escrow_funds` | `(tx_id, amount)` |
 | `transfer_completed` | `send`, `release_escrow` | `(tx_id, recipient)` |
+| `escrow_cancelled` | `cancel_escrow` | `(tx_id, amount)` |
+| `admin_transferred` | `transfer_admin` | `new_admin` |
+| `contract_paused` | `pause` | `()` |
+| `contract_unpaused` | `unpause` | `()` |
+| `withdraw` | `withdraw` | `(to, amount)` |
 
 ---
 
@@ -162,8 +176,10 @@ soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphra
 |---|---|---|
 | `DataKey::Admin` | Instance | Admin address |
 | `DataKey::TxCount` | Instance | Auto-increment transaction counter |
+| `DataKey::Paused` | Instance | Contract pause state (bool) |
 | `DataKey::Balance(addr)` | Persistent | Per-address balance |
 | `DataKey::Transaction(id)` | Persistent | Transaction record by ID |
+| `DataKey::LastTxTime(addr)` | Persistent | Last operation timestamp for rate limiting |
 
 ---
 

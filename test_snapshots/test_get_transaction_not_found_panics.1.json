@@ -74,6 +74,18 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Config"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "u64": 300
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
                               "symbol": "Paused"
                             }
                           ]
@@ -249,7 +261,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'transaction not found' from contract function 'Symbol(obj#21)'"
+                  "string": "caught panic 'transaction not found' from contract function 'Symbol(obj#23)'"
                 },
                 {
                   "u64": 999

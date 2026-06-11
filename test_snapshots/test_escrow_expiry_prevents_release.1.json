@@ -332,6 +332,18 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Config"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "u64": 300
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
                               "symbol": "Paused"
                             }
                           ]
@@ -769,7 +781,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'escrow expired' from contract function 'Symbol(obj#103)'"
+                  "string": "caught panic 'escrow expired' from contract function 'Symbol(obj#111)'"
                 },
                 {
                   "u64": 1

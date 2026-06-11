@@ -18,9 +18,13 @@ impl RemittanceContract {
             panic!("already initialized");
         }
         admin.require_auth();
+        const DEFAULT_COOLDOWN: u64 = 300;
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::TxCount, &0u64);
         env.storage().instance().set(&DataKey::Paused, &false);
+        env.storage()
+            .instance()
+            .set(&DataKey::Config, &DEFAULT_COOLDOWN);
     }
 
     /// Deposit funds into sender's on-chain balance.!!!!!!
@@ -320,6 +324,25 @@ impl RemittanceContract {
             .unwrap_or(false)
     }
 
+    /// Admin-only: set the rate limit cooldown in seconds. Use 0 to disable.
+    pub fn set_rate_limit(env: Env, cooldown_seconds: u64) {
+        Self::require_admin(&env);
+        env.storage()
+            .instance()
+            .set(&DataKey::Config, &cooldown_seconds);
+
+        env.events()
+            .publish((Symbol::new(&env, "rate_limit_updated"),), cooldown_seconds);
+    }
+
+    /// Read the current rate limit cooldown in seconds.
+    pub fn get_rate_limit(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DataKey::Config)
+            .unwrap_or(300)
+    }
+
     /// Admin-only: withdraw funds from the contract (e.g., collected fees).
     /// `from` is the address whose balance to draw from; `to` receives the funds.
     pub fn withdraw(env: Env, from: Address, to: Address, amount: i128) {
@@ -398,12 +421,20 @@ impl RemittanceContract {
     /// Enforce a cooldown between consecutive send/escrow operations per address.
     /// Default cooldown: 300 seconds (5 minutes).
     fn check_rate_limit(env: &Env, addr: &Address) {
-        const COOLDOWN_SECONDS: u64 = 300;
+        let cooldown: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::Config)
+            .unwrap_or(300);
+        // 0 means rate limiting is disabled
+        if cooldown == 0 {
+            return;
+        }
         let key = DataKey::LastTxTime(addr.clone());
         let now = env.ledger().timestamp();
         if let Some(last_time) = env.storage().persistent().get::<DataKey, u64>(&key) {
             assert!(
-                now >= last_time && now - last_time >= COOLDOWN_SECONDS,
+                now >= last_time && now - last_time >= cooldown,
                 "rate limit exceeded — wait before next operation"
             );
         }

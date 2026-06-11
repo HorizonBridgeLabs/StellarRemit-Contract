@@ -626,3 +626,82 @@ fn test_withdraw_insufficient_balance() {
 
     client.withdraw(&admin, &treasury, &1_000_000); // no balance — should panic
 }
+
+// ── configurable rate limit tests ───────────────────────
+
+#[test]
+fn test_default_rate_limit_is_300() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    assert_eq!(client.get_rate_limit(), 300);
+}
+
+#[test]
+fn test_set_rate_limit_changes_cooldown() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+
+    // Reduce cooldown to 10 seconds
+    client.set_rate_limit(&10);
+    assert_eq!(client.get_rate_limit(), 10);
+
+    // First operation
+    client.send(&sender, &recipient, &500_000);
+
+    // Advance time just 11 seconds — should pass with shorter cooldown
+    env.ledger().set(soroban_sdk::testutils::LedgerInfo {
+        timestamp: env.ledger().timestamp() + 11,
+        protocol_version: env.ledger().protocol_version(),
+        sequence_number: env.ledger().sequence() + 10,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+
+    let tx_id = client.send(&sender, &recipient, &200_000);
+    assert!(tx_id > 0);
+}
+
+#[test]
+fn test_disable_rate_limit_with_zero() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+
+    // Disable rate limiting
+    client.set_rate_limit(&0);
+    assert_eq!(client.get_rate_limit(), 0);
+
+    // Back-to-back sends should work without cooldown
+    client.send(&sender, &recipient, &500_000);
+    client.send(&sender, &recipient, &200_000);
+}
+
+#[test]
+#[should_panic(expected = "rate limit exceeded")]
+fn test_custom_rate_limit_still_enforced() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+
+    // Set a longer cooldown
+    client.set_rate_limit(&600);
+
+    client.send(&sender, &recipient, &500_000);
+    // Immediate second send should still fail
+    client.send(&sender, &recipient, &200_000);
+}

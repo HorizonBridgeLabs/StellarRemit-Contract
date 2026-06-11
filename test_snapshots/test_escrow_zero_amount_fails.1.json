@@ -74,6 +74,18 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Config"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "u64": 300
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
                               "symbol": "Paused"
                             }
                           ]
@@ -265,7 +277,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'Escrow amount must be greater than zero' from contract function 'Symbol(obj#25)'"
+                  "string": "caught panic 'Escrow amount must be greater than zero' from contract function 'Symbol(obj#27)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"

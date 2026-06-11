@@ -399,6 +399,18 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Config"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "u64": 300
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
                               "symbol": "Paused"
                             }
                           ]
@@ -946,7 +958,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'not in escrow' from contract function 'Symbol(obj#147)'"
+                  "string": "caught panic 'not in escrow' from contract function 'Symbol(obj#155)'"
                 },
                 {
                   "u64": 1

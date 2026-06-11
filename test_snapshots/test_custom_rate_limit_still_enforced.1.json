@@ -38,8 +38,27 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 1000000
+                    "lo": 2000000
                   }
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "set_rate_limit",
+              "args": [
+                {
+                  "u64": 600
                 }
               ]
             }
@@ -55,7 +74,7 @@
           "function": {
             "contract_fn": {
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "escrow_funds",
+              "function_name": "send",
               "args": [
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
@@ -66,30 +85,8 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 400000
+                    "lo": 500000
                   }
-                },
-                {
-                  "u32": 0
-                }
-              ]
-            }
-          },
-          "sub_invocations": []
-        }
-      ]
-    ],
-    [
-      [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-        {
-          "function": {
-            "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "release_escrow",
-              "args": [
-                {
-                  "u64": 1
                 }
               ]
             }
@@ -148,7 +145,7 @@
                 "val": {
                   "i128": {
                     "hi": 0,
-                    "lo": 600000
+                    "lo": 1500000
                   }
                 }
               }
@@ -196,7 +193,7 @@
                 "val": {
                   "i128": {
                     "hi": 0,
-                    "lo": 400000
+                    "lo": 500000
                   }
                 }
               }
@@ -295,7 +292,7 @@
                       "val": {
                         "i128": {
                           "hi": 0,
-                          "lo": 400000
+                          "lo": 500000
                         }
                       }
                     },
@@ -338,7 +335,7 @@
                       "val": {
                         "vec": [
                           {
-                            "symbol": "Released"
+                            "symbol": "Completed"
                           }
                         ]
                       }
@@ -404,7 +401,7 @@
                           ]
                         },
                         "val": {
-                          "u64": 300
+                          "u64": 600
                         }
                       },
                       {
@@ -477,7 +474,7 @@
       [
         {
           "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
             "key": {
               "ledger_key_nonce": {
                 "nonce": 1033654523790656264
@@ -492,7 +489,7 @@
             "data": {
               "contract_data": {
                 "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
                 "key": {
                   "ledger_key_nonce": {
                     "nonce": 1033654523790656264
@@ -670,7 +667,7 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 1000000
+                    "lo": 2000000
                   }
                 }
               ]
@@ -700,13 +697,13 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 1000000
+                    "lo": 2000000
                   }
                 },
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 1000000
+                    "lo": 2000000
                   }
                 }
               ]
@@ -734,7 +731,7 @@
             "data": {
               "i128": {
                 "hi": 0,
-                "lo": 1000000
+                "lo": 2000000
               }
             }
           }
@@ -757,7 +754,74 @@
                 "bytes": "0000000000000000000000000000000000000000000000000000000000000001"
               },
               {
-                "symbol": "escrow_funds"
+                "symbol": "set_rate_limit"
+              }
+            ],
+            "data": {
+              "u64": 600
+            }
+          }
+        }
+      },
+      "failed_call": false
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "rate_limit_updated"
+              }
+            ],
+            "data": {
+              "u64": 600
+            }
+          }
+        }
+      },
+      "failed_call": false
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "type_": "diagnostic",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "fn_return"
+              },
+              {
+                "symbol": "set_rate_limit"
+              }
+            ],
+            "data": "void"
+          }
+        }
+      },
+      "failed_call": false
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": null,
+        "type_": "diagnostic",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "fn_call"
+              },
+              {
+                "bytes": "0000000000000000000000000000000000000000000000000000000000000001"
+              },
+              {
+                "symbol": "send"
               }
             ],
             "data": {
@@ -771,11 +835,8 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 400000
+                    "lo": 500000
                   }
-                },
-                {
-                  "u32": 0
                 }
               ]
             }
@@ -807,59 +868,10 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 400000
+                    "lo": 500000
                   }
                 }
               ]
-            }
-          }
-        }
-      },
-      "failed_call": false
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "fn_return"
-              },
-              {
-                "symbol": "escrow_funds"
-              }
-            ],
-            "data": {
-              "u64": 1
-            }
-          }
-        }
-      },
-      "failed_call": false
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": null,
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "fn_call"
-              },
-              {
-                "bytes": "0000000000000000000000000000000000000000000000000000000000000001"
-              },
-              {
-                "symbol": "release_escrow"
-              }
-            ],
-            "data": {
-              "u64": 1
             }
           }
         }
@@ -908,10 +920,12 @@
                 "symbol": "fn_return"
               },
               {
-                "symbol": "release_escrow"
+                "symbol": "send"
               }
             ],
-            "data": "void"
+            "data": {
+              "u64": 1
+            }
           }
         }
       },
@@ -932,11 +946,24 @@
                 "bytes": "0000000000000000000000000000000000000000000000000000000000000001"
               },
               {
-                "symbol": "cancel_escrow"
+                "symbol": "send"
               }
             ],
             "data": {
-              "u64": 1
+              "vec": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                },
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 200000
+                  }
+                }
+              ]
             }
           }
         }
@@ -958,10 +985,19 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'not in escrow' from contract function 'Symbol(obj#155)'"
+                  "string": "caught panic 'rate limit exceeded \\xe2\\x80\\x94 wait before next operation' from contract function 'Symbol(send)'"
                 },
                 {
-                  "u64": 1
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                },
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 200000
+                  }
                 }
               ]
             }
@@ -1018,12 +1054,21 @@
                   "string": "contract call failed"
                 },
                 {
-                  "symbol": "cancel_escrow"
+                  "symbol": "send"
                 },
                 {
                   "vec": [
                     {
-                      "u64": 1
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                    },
+                    {
+                      "i128": {
+                        "hi": 0,
+                        "lo": 200000
+                      }
                     }
                   ]
                 }

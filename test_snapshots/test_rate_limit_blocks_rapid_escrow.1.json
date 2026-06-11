@@ -332,6 +332,18 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Config"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "u64": 300
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
                               "symbol": "Paused"
                             }
                           ]
@@ -785,7 +797,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'rate limit exceeded \\xe2\\x80\\x94 wait before next operation' from contract function 'Symbol(obj#103)'"
+                  "string": "caught panic 'rate limit exceeded \\xe2\\x80\\x94 wait before next operation' from contract function 'Symbol(obj#111)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"

@@ -292,6 +292,10 @@ impl RemittanceContract {
     /// Transfer admin rights to a new address.
     /// Requires authentication from the current admin.
     /// Emits an admin_transferred event.
+    ///
+    /// # Security
+    /// Validates that the new admin is not the same as the current admin
+    /// and that the new admin address is not the contract itself.
     pub fn transfer_admin(env: Env, new_admin: Address) {
         let current_admin: Address = env
             .storage()
@@ -303,6 +307,10 @@ impl RemittanceContract {
         assert!(
             new_admin != current_admin,
             "new admin must differ from current admin"
+        );
+        assert!(
+            new_admin != env.current_contract_address(),
+            "admin cannot be the contract itself"
         );
 
         env.storage().instance().set(&DataKey::Admin, &new_admin);

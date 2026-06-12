@@ -652,6 +652,328 @@ impl RemittanceContract {
         }
     }
 
+    // ── pagination & queries ────────────────────────────
+
+    /// Return a page of transactions with offset-based pagination.
+    /// `offset`: starting tx ID (1-based). `limit`: max results (capped at 50).
+    /// Returns Vec<Transaction> for the requested page.
+    pub fn get_transactions_page(
+        env: Env,
+        offset: u64,
+        limit: u64,
+    ) -> soroban_sdk::Vec<Transaction> {
+        let count: u64 = env.storage().instance().get(&DataKey::TxCount).unwrap_or(0);
+        let max_limit = 50u64;
+        let effective_limit = if limit > max_limit { max_limit } else { limit };
+        let start = if offset < 1 { 1 } else { offset };
+        let end = if start + effective_limit - 1 > count {
+            count + 1
+        } else {
+            start + effective_limit
+        };
+
+        let mut result = soroban_sdk::Vec::new(&env);
+        for id in start..end {
+            if let Some(tx) = env
+                .storage()
+                .persistent()
+                .get::<DataKey, Transaction>(&DataKey::Transaction(id))
+            {
+                result.push_back(tx);
+            }
+        }
+        result
+    }
+
+    /// Query all transaction IDs associated with a user address.
+    /// Returns paginated Vec<u64> of transaction IDs where user is sender or recipient.
+    pub fn query_user_transactions(
+        env: Env,
+        user: Address,
+        limit: u64,
+        offset: u64,
+    ) -> soroban_sdk::Vec<u64> {
+        let count: u64 = env.storage().instance().get(&DataKey::TxCount).unwrap_or(0);
+        let max_limit = 50u64;
+        let effective_limit = if limit > max_limit { max_limit } else { limit };
+
+        let mut result = soroban_sdk::Vec::new(&env);
+        let mut skipped: u64 = 0;
+        for id in 1..=count {
+            if let Some(tx) = env
+                .storage()
+                .persistent()
+                .get::<DataKey, Transaction>(&DataKey::Transaction(id))
+            {
+                if tx.sender == user || tx.recipient == user {
+                    if skipped < offset {
+                        skipped += 1;
+                        continue;
+                    }
+                    result.push_back(id);
+                    if result.len() as u64 >= effective_limit {
+                        break;
+                    }
+                }
+            }
+        }
+        result
+    }
+
+    // ── batch operations ─────────────────────────────────
+
+    /// Admin-only: deposit funds to multiple recipients in a single call.
+    /// `recipients` and `amounts` must have matching lengths.
+    /// Each deposit validated independently (min amounts, paused check).
+    pub fn batch_deposit(
+        env: Env,
+        recipients: soroban_sdk::Vec<Address>,
+        amounts: soroban_sdk::Vec<i128>,
+    ) {
+        Self::require_admin(&env);
+        Self::require_not_paused(&env);
+        assert!(
+            recipients.len() == amounts.len(),
+            "recipients and amounts length mismatch"
+        );
+        assert!(recipients.len() > 0, "must provide at least one recipient");
+
+        let count = recipients.len();
+        for i in 0..count {
+            let recipient = recipients.get(i).expect("recipient access failed");
+            let amount = amounts.get(i).expect("amount access failed");
+            assert!(amount > 0, "batch deposit amount must be greater than zero");
+            const MIN_DEPOSIT: i128 = 1_000_000;
+            assert!(
+                amount >= MIN_DEPOSIT,
+                "amount below minimum deposit threshold"
+            );
+
+            let key = DataKey::Balance(recipient.clone());
+            let balance: i128 = env.storage().persistent().get(&key).unwrap_or(0);
+            let new_balance = balance.checked_add(amount).expect("arithmetic overflow");
+            env.storage().persistent().set(&key, &new_balance);
+
+            Self::add_supply(&env, amount);
+        }
+
+        env.events()
+            .publish((Symbol::new(&env, "batch_deposit"),), count);
+    }
+
+    // ── fee collection ───────────────────────────────────
+
+    /// Admin-only: collect accumulated fees from treasury to a destination.
+    /// Transfers entire treasury balance to `to` address.
+    /// Only works when FeeConfig is set with a treasury address.
+    pub fn collect_fees(env: Env, to: Address) -> i128 {
+        Self::require_admin(&env);
+        assert!(
+            to != env.current_contract_address(),
+            "cannot collect fees to contract itself"
+        );
+
+        let fee_config: FeeConfig = env
+            .storage()
+            .instance()
+            .get(&DataKey::FeeConfig)
+            .expect("fee configuration not set");
+
+        let treasury_key = DataKey::Balance(fee_config.treasury.clone());
+        let treasury_bal: i128 = env.storage().persistent().get(&treasury_key).unwrap_or(0);
+        assert!(treasury_bal > 0, "no fees to collect");
+
+        // Transfer to destination
+        let to_key = DataKey::Balance(to.clone());
+        let to_bal: i128 = env.storage().persistent().get(&to_key).unwrap_or(0);
+
+        env.storage()
+            .persistent()
+            .set(&treasury_key, &0i128);
+        env.storage().persistent().set(
+            &to_key,
+            &to_bal.checked_add(treasury_bal).expect("arithmetic overflow"),
+        );
+
+        env.events().publish(
+            (Symbol::new(&env, "fees_collected"), fee_config.treasury),
+            (to, treasury_bal),
+        );
+
+        treasury_bal
+    }
+
+    // ── admin escrow overrides ───────────────────────────
+
+    /// Admin-only: force-release an escrowed transaction to the recipient.
+    /// Bypasses sender auth and expiry checks for dispute resolution.
+    pub fn admin_release_escrow(env: Env, transaction_id: u64) {
+        Self::require_admin(&env);
+        let key = DataKey::Transaction(transaction_id);
+        let mut tx: Transaction = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .expect("transaction not found");
+
+        assert!(
+            tx.status == TransactionStatus::Escrowed,
+            "transaction not in escrow"
+        );
+
+        let (net_amount, fee_amount) = Self::compute_fee(&env, tx.amount);
+        assert!(
+            net_amount > 0,
+            "fee exceeds escrow amount — recipient would receive zero"
+        );
+
+        let recipient_key = DataKey::Balance(tx.recipient.clone());
+        let recipient_bal: i128 = env.storage().persistent().get(&recipient_key).unwrap_or(0);
+        env.storage().persistent().set(
+            &recipient_key,
+            &recipient_bal
+                .checked_add(net_amount)
+                .expect("arithmetic overflow"),
+        );
+
+        Self::credit_treasury(&env, fee_amount);
+
+        tx.status = TransactionStatus::Released;
+        env.storage().persistent().set(&key, &tx);
+
+        env.events().publish(
+            (Symbol::new(&env, "admin_escrow_released"),),
+            (transaction_id, tx.recipient),
+        );
+    }
+
+    /// Admin-only: force-cancel an escrowed transaction and refund sender.
+    /// Bypasses sender auth and expiry checks for dispute resolution.
+    pub fn admin_cancel_escrow(env: Env, transaction_id: u64) {
+        Self::require_admin(&env);
+        let key = DataKey::Transaction(transaction_id);
+        let mut tx: Transaction = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .expect("transaction not found");
+
+        assert!(
+            tx.status == TransactionStatus::Escrowed,
+            "transaction not in escrow"
+        );
+
+        // Refund the sender
+        let sender_key = DataKey::Balance(tx.sender.clone());
+        let sender_bal: i128 = env.storage().persistent().get(&sender_key).unwrap_or(0);
+        env.storage().persistent().set(
+            &sender_key,
+            &sender_bal
+                .checked_add(tx.amount)
+                .expect("arithmetic overflow"),
+        );
+
+        tx.status = TransactionStatus::Cancelled;
+        env.storage().persistent().set(&key, &tx);
+
+        env.events().publish(
+            (Symbol::new(&env, "admin_escrow_cancelled"),),
+            (transaction_id, tx.amount),
+        );
+    }
+
+    // ── recipient confirmation ───────────────────────────
+
+    /// Recipient confirms they want to receive an escrowed transfer.
+    /// Must be called before release_escrow when confirmation is enabled.
+    pub fn confirm_escrow(env: Env, transaction_id: u64) {
+        let key = DataKey::Transaction(transaction_id);
+        let mut tx: Transaction = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .expect("transaction not found");
+
+        assert!(
+            tx.status == TransactionStatus::Escrowed,
+            "transaction not in escrow"
+        );
+        assert!(!tx.recipient_confirmed, "escrow already confirmed");
+
+        tx.recipient.require_auth();
+        tx.recipient_confirmed = true;
+        env.storage().persistent().set(&key, &tx);
+
+        env.events().publish(
+            (Symbol::new(&env, "escrow_confirmed"), tx.recipient),
+            transaction_id,
+        );
+    }
+
+    /// Check if an escrowed transaction has been confirmed by the recipient.
+    pub fn is_escrow_confirmed(env: Env, transaction_id: u64) -> bool {
+        env.storage()
+            .persistent()
+            .get::<DataKey, Transaction>(&DataKey::Transaction(transaction_id))
+            .map(|tx| tx.recipient_confirmed)
+            .unwrap_or(false)
+    }
+
+    // ── upgrade tracking ─────────────────────────────────
+
+    /// Admin-only: record a contract upgrade with new version.
+    /// Tracks upgrade count, timestamp, and previous version.
+    pub fn record_upgrade(env: Env, new_version: soroban_sdk::String) {
+        Self::require_admin(&env);
+
+        let current_version = Self::version(env.clone());
+        let upgrade_data: (u32, u64, soroban_sdk::String) = env
+            .storage()
+            .instance()
+            .get(&DataKey::UpgradeHistory)
+            .unwrap_or((0u32, 0u64, soroban_sdk::String::from_str(&env, "0.0.0")));
+
+        let new_count = upgrade_data.0 + 1;
+        let now = env.ledger().timestamp();
+        let record = (new_count, now, current_version);
+        env.storage().instance().set(&DataKey::UpgradeHistory, &record);
+
+        env.events().publish(
+            (Symbol::new(&env, "contract_upgraded"),),
+            (new_count, new_version),
+        );
+    }
+
+    /// Return upgrade history: (count, last_timestamp, previous_version).
+    pub fn get_upgrade_info(
+        env: Env,
+    ) -> (u32, u64, soroban_sdk::String) {
+        env.storage()
+            .instance()
+            .get(&DataKey::UpgradeHistory)
+            .unwrap_or((0u32, 0u64, soroban_sdk::String::from_str(&env, "0.0.0")))
+    }
+
+    // ── daily volume limit ───────────────────────────────
+
+    /// Admin-only: set the daily transfer volume limit per address.
+    /// Set to 0 to disable (default).
+    pub fn set_daily_limit(env: Env, limit: i128) {
+        Self::require_admin(&env);
+        env.storage().instance().set(&DataKey::DailyLimit, &limit);
+
+        env.events()
+            .publish((Symbol::new(&env, "daily_limit_updated"),), limit);
+    }
+
+    /// Read the current daily transfer volume limit.
+    pub fn get_daily_limit(env: Env) -> i128 {
+        env.storage()
+            .instance()
+            .get(&DataKey::DailyLimit)
+            .unwrap_or(0)
+    }
+
     // ── helpers ───────────────────────────────────────────
 
     fn next_id(env: &Env) -> u64 {

@@ -1360,7 +1360,7 @@ fn test_admin_release_escrow() {
     client.init(&admin);
     client.deposit(&sender, &1_000_000);
 
-    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, , &None)None);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &None);
     client.admin_release_escrow(&tx_id);
 
     assert_eq!(client.balance(&recipient), 400_000);
@@ -1376,7 +1376,7 @@ fn test_admin_cancel_escrow_refunds() {
     client.init(&admin);
     client.deposit(&sender, &1_000_000);
 
-    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, , &None)None);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &None);
     client.admin_cancel_escrow(&tx_id);
 
     assert_eq!(client.balance(&sender), 1_000_000);
@@ -1414,7 +1414,7 @@ fn test_escrow_no_memo_no_confirmation_needed() {
     client.init(&admin);
     client.deposit(&sender, &1_000_000);
 
-    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, , &None)None);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &None);
     // No memo, so confirmation not required — release directly
     client.release_escrow(&tx_id);
     assert_eq!(client.balance(&recipient), 400_000);

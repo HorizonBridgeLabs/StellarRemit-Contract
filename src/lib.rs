@@ -982,6 +982,131 @@ impl RemittanceContract {
             .unwrap_or(0)
     }
 
+    // ── multi-sig admin ──────────────────────────────────
+
+    /// Admin-only: add an address to the admin set (multi-sig).
+    /// First call enables multi-sig mode. Single admin remains supported.
+    pub fn add_admin(env: Env, new_admin: Address) {
+        Self::require_admin(&env);
+        assert!(
+            new_admin != env.current_contract_address(),
+            "admin cannot be the contract itself"
+        );
+
+        let mut admins: soroban_sdk::Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::AdminSet)
+            .unwrap_or_else(|| {
+                // Initialize with current admin
+                let current_admin: Address = env
+                    .storage()
+                    .instance()
+                    .get(&DataKey::Admin)
+                    .expect("admin not initialized");
+                soroban_sdk::vec![&env, current_admin]
+            });
+
+        // Check for duplicates
+        for admin in admins.iter() {
+            assert!(admin != new_admin, "admin already in set");
+        }
+
+        admins.push_back(new_admin.clone());
+        env.storage().instance().set(&DataKey::AdminSet, &admins);
+
+        // Set default threshold to 1 if not set
+        if !env.storage().instance().has(&DataKey::ApprovalThreshold) {
+            env.storage()
+                .instance()
+                .set(&DataKey::ApprovalThreshold, &1u32);
+        }
+
+        env.events()
+            .publish((Symbol::new(&env, "admin_added"),), new_admin);
+    }
+
+    /// Admin-only: remove an address from the admin set.
+    pub fn remove_admin(env: Env, admin_to_remove: Address) {
+        Self::require_admin(&env);
+
+        let mut admins: soroban_sdk::Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::AdminSet)
+            .expect("admin set not initialized");
+
+        let len_before = admins.len();
+        let mut new_admins = soroban_sdk::Vec::new(&env);
+        for admin in admins.iter() {
+            if admin != admin_to_remove {
+                new_admins.push_back(admin);
+            }
+        }
+        assert!(
+            new_admins.len() < len_before,
+            "admin not found in set"
+        );
+        assert!(new_admins.len() > 0, "cannot remove last admin");
+
+        env.storage().instance().set(&DataKey::AdminSet, &new_admins);
+
+        // Update primary admin if it was removed
+        let primary: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .unwrap_or(admin_to_remove.clone());
+        if primary == admin_to_remove {
+            let first = new_admins.first().expect("no admins left");
+            env.storage().instance().set(&DataKey::Admin, &first);
+        }
+
+        env.events()
+            .publish((Symbol::new(&env, "admin_removed"),), admin_to_remove);
+    }
+
+    /// Admin-only: set the multi-sig approval threshold (1 to admin_count).
+    pub fn set_approval_threshold(env: Env, threshold: u32) {
+        Self::require_admin(&env);
+        assert!(threshold > 0, "threshold must be at least 1");
+
+        let admins: soroban_sdk::Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::AdminSet)
+            .unwrap_or_else(|| {
+                soroban_sdk::vec![&env]
+            });
+        assert!(
+            threshold as u32 <= admins.len(),
+            "threshold cannot exceed admin count"
+        );
+
+        env.storage()
+            .instance()
+            .set(&DataKey::ApprovalThreshold, &threshold);
+
+        env.events()
+            .publish((Symbol::new(&env, "threshold_updated"),), threshold);
+    }
+
+    /// Read the current multi-sig admin set.
+    pub fn get_admin_set(env: Env) -> soroban_sdk::Vec<Address> {
+        env.storage()
+            .instance()
+            .get(&DataKey::AdminSet)
+            .unwrap_or_else(|| soroban_sdk::vec![&env])
+    }
+
+    /// Read the current approval threshold.
+    pub fn get_approval_threshold(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::ApprovalThreshold)
+            .unwrap_or(1)
+    }
+
     // ── helpers ───────────────────────────────────────────
 
     fn next_id(env: &Env) -> u64 {

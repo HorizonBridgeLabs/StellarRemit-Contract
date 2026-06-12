@@ -4,6 +4,36 @@ All notable changes to StellarRemit-Contract.
 
 ---
 
+## [1.3.0] — 2026-06-12
+
+### Added
+- **`memo` field** — Optional payment reference (max 64 bytes) on Transaction struct, supported in `send()` and `escrow_funds()` (#109)
+- **`get_transactions_page(offset, limit)`** — Paginated transaction queries with max 50 per page (#113)
+- **`query_user_transactions(user, limit, offset)`** — Query all transactions for a user address (#110)
+- **`batch_deposit(recipients, amounts)`** — Admin multi-recipient deposit in a single call (#112)
+- **`collect_fees(to)`** — Admin collect accumulated treasury fees to any address (#118)
+- **`admin_release_escrow(tx_id)`** / **`admin_cancel_escrow(tx_id)`** — Admin dispute resolution overrides (#115)
+- **`confirm_escrow(tx_id)`** / **`is_escrow_confirmed(tx_id)`** — Recipient confirmation flow for memo'd escrows (#117)
+- **`record_upgrade(version)`** / **`get_upgrade_info()`** — On-chain upgrade history tracking (#114)
+- **`set_daily_limit(limit)`** / **`get_daily_limit()`** — Per-address daily transfer volume enforcement (#111)
+- **`add_admin(addr)`** / **`remove_admin(addr)`** / **`set_approval_threshold(n)`** — Multi-sig admin support (#116)
+- **`get_admin_set()`** / **`get_approval_threshold()`** — Multi-sig admin queries
+
+### Changed
+- `send()` and `escrow_funds()` now accept optional `memo` parameter
+- `release_escrow()` enforces recipient confirmation when memo is present
+- Both `send()` and `escrow_funds()` enforce daily volume limits when configured
+
+### Events
+- `batch_deposit`, `fees_collected`, `admin_escrow_released`, `admin_escrow_cancelled`
+- `escrow_confirmed`, `contract_upgraded`, `daily_limit_updated`
+- `admin_added`, `admin_removed`, `threshold_updated`
+
+### Storage
+- 5 new DataKey variants: DailyVolume, DailyLimit, UpgradeHistory, AdminSet, ApprovalThreshold
+
+---
+
 ## [1.2.0] — 2026-06-12
 
 ### Added

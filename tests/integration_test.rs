@@ -88,6 +88,24 @@ fn test_escrow_insufficient_balance() {
     client.escrow_funds(&sender, &recipient, &5_000_000, &0); // should panic
 }
 
+// ── Pending status tests ───────────────────────────────
+
+#[test]
+fn test_escrow_initial_status_is_escrowed() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    let tx = client.get_transaction(&tx_id);
+    // Escrow should be in Escrowed status after creation
+    assert_eq!(tx.status, TransactionStatus::Escrowed);
+    assert!(tx.status != TransactionStatus::Pending);
+}
+
 #[test]
 fn test_escrow_and_release() {
     let (env, client) = setup();

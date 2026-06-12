@@ -514,11 +514,9 @@ impl RemittanceContract {
         let threshold = ledgers;
 
         // Extend TotalSupply entry
-        env.storage().persistent().extend_ttl(
-            &DataKey::TotalSupply,
-            threshold,
-            threshold,
-        );
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::TotalSupply, threshold, threshold);
 
         // Collect unique addresses from all transactions and extend
         // their Balance and UserMetadata entries alongside the transactions.
@@ -527,11 +525,9 @@ impl RemittanceContract {
             let tx_key = DataKey::Transaction(id);
             if env.storage().persistent().has(&tx_key) {
                 // Extend the transaction entry itself
-                env.storage().persistent().extend_ttl(
-                    &tx_key,
-                    threshold,
-                    threshold,
-                );
+                env.storage()
+                    .persistent()
+                    .extend_ttl(&tx_key, threshold, threshold);
 
                 // Read the transaction to find associated addresses
                 if let Some(tx) = env

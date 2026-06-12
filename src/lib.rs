@@ -439,7 +439,7 @@ impl RemittanceContract {
 
     /// Return the contract version string.
     pub fn version(env: Env) -> soroban_sdk::String {
-        soroban_sdk::String::from_str(&env, "1.1.0")
+        soroban_sdk::String::from_str(&env, "1.2.0")
     }
 
     /// Return aggregate contract statistics in a single call.
@@ -505,6 +505,9 @@ impl RemittanceContract {
     /// and recipient addresses found in transactions), and all UserMetadata
     /// entries found in transactions. Call periodically to prevent
     /// ledger eviction of persistent data.
+    ///
+    /// # Security
+    /// Requires admin auth. Ledgers must be greater than zero.
     pub fn extend_ttl(env: Env, ledgers: u32) {
         Self::require_admin(&env);
         assert!(ledgers > 0, "ledgers must be greater than zero");

@@ -166,15 +166,18 @@ impl RemittanceContract {
         } else {
             0
         };
-        let tx = Transaction {
+        // Create transaction with Pending status first, then move to Escrowed
+        let mut tx = Transaction {
             id,
             sender: sender.clone(),
             recipient,
             amount,
-            status: TransactionStatus::Escrowed,
+            status: TransactionStatus::Pending,
             timestamp,
             expires_at,
         };
+        // Transition to Escrowed after creation
+        tx.status = TransactionStatus::Escrowed;
         // Transaction uses persistent storage — survives ledger expiry
         env.storage()
             .persistent()

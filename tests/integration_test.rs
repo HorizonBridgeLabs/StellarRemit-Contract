@@ -1276,7 +1276,11 @@ fn test_query_user_transactions() {
     let sender_txs = client.query_user_transactions(&sender, &10, &0);
     assert!(sender_txs.len() > 0);
 
-    let recipient_txs = client.query_user_transactions(&recipient, &10, &0);    assert!(recipient_txs.len() > 0, "recipient should see the incoming tx");
+    let recipient_txs = client.query_user_transactions(&recipient, &10, &0);
+    assert!(
+        recipient_txs.len() > 0,
+        "recipient should see the incoming tx"
+    );
 }
 
 #[test]

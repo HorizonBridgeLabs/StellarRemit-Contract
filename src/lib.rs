@@ -80,7 +80,13 @@ impl RemittanceContract {
 
     /// Transfer funds from sender to recipient immediately.
     /// `memo`: optional payment reference (max 64 bytes).
-    pub fn send(env: Env, sender: Address, recipient: Address, amount: i128, memo: Option<soroban_sdk::Bytes>) -> u64 {
+    pub fn send(
+        env: Env,
+        sender: Address,
+        recipient: Address,
+        amount: i128,
+        memo: Option<soroban_sdk::Bytes>,
+    ) -> u64 {
         sender.require_auth();
         assert!(amount > 0, "Send amount must be greater than zero");
         assert!(sender != recipient, "cannot send to yourself");
@@ -232,7 +238,10 @@ impl RemittanceContract {
 
         // Require recipient confirmation if memo is present (confirmation flow)
         if tx.memo.is_some() {
-            assert!(tx.recipient_confirmed, "recipient must confirm escrow first");
+            assert!(
+                tx.recipient_confirmed,
+                "recipient must confirm escrow first"
+            );
         }
 
         tx.sender.require_auth();
@@ -744,7 +753,10 @@ impl RemittanceContract {
             recipients.len() == amounts.len(),
             "recipients and amounts length mismatch"
         );
-        assert!(!recipients.is_empty(), "must provide at least one recipient");
+        assert!(
+            !recipients.is_empty(),
+            "must provide at least one recipient"
+        );
 
         let count = recipients.len();
         for i in 0..count {
@@ -798,7 +810,9 @@ impl RemittanceContract {
         env.storage().persistent().set(&treasury_key, &0i128);
         env.storage().persistent().set(
             &to_key,
-            &to_bal.checked_add(treasury_bal).expect("arithmetic overflow"),
+            &to_bal
+                .checked_add(treasury_bal)
+                .expect("arithmetic overflow"),
         );
 
         env.events().publish(
@@ -942,7 +956,9 @@ impl RemittanceContract {
         let new_count = upgrade_data.0 + 1;
         let now = env.ledger().timestamp();
         let record = (new_count, now, current_version);
-        env.storage().instance().set(&DataKey::UpgradeHistory, &record);
+        env.storage()
+            .instance()
+            .set(&DataKey::UpgradeHistory, &record);
 
         env.events().publish(
             (Symbol::new(&env, "contract_upgraded"),),
@@ -1013,7 +1029,9 @@ impl RemittanceContract {
 
         // Set default threshold to 1 if not set
         if !env.storage().instance().has(&DataKey::ApprovalThreshold) {
-            env.storage().instance().set(&DataKey::ApprovalThreshold, &1u32);
+            env.storage()
+                .instance()
+                .set(&DataKey::ApprovalThreshold, &1u32);
         }
 
         env.events()
@@ -1040,7 +1058,9 @@ impl RemittanceContract {
         assert!(new_admins.len() < len_before, "admin not found in set");
         assert!(!new_admins.is_empty(), "cannot remove last admin");
 
-        env.storage().instance().set(&DataKey::AdminSet, &new_admins);
+        env.storage()
+            .instance()
+            .set(&DataKey::AdminSet, &new_admins);
 
         // Update primary admin if it was removed
         let primary: Address = env
@@ -1067,9 +1087,14 @@ impl RemittanceContract {
             .instance()
             .get(&DataKey::AdminSet)
             .unwrap_or_else(|| soroban_sdk::vec![&env]);
-        assert!(threshold <= admins.len(), "threshold cannot exceed admin count");
+        assert!(
+            threshold <= admins.len(),
+            "threshold cannot exceed admin count"
+        );
 
-        env.storage().instance().set(&DataKey::ApprovalThreshold, &threshold);
+        env.storage()
+            .instance()
+            .set(&DataKey::ApprovalThreshold, &threshold);
 
         env.events()
             .publish((Symbol::new(&env, "threshold_updated"),), threshold);
@@ -1148,7 +1173,10 @@ impl RemittanceContract {
         assert!(
             effective_volume + amount <= daily_limit,
             "daily transfer volume limit exceeded"
-        );        env.storage().persistent().set(&volume_key, &(ledger_day, effective_volume + amount));
+        );
+        env.storage()
+            .persistent()
+            .set(&volume_key, &(ledger_day, effective_volume + amount));
     }
 
     /// Enforce a cooldown between consecutive send/escrow operations per address.

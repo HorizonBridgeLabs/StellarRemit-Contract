@@ -1190,6 +1190,341 @@ fn test_transaction_exists_after_escrow() {
     assert!(client.transaction_exists(&tx_id));
 }
 
+// ── memo field tests ───────────────────────────────────
+
+#[test]
+fn test_send_with_memo() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let memo = soroban_sdk::Bytes::from_array(&env, &[1, 2, 3, 4]);
+    let tx_id = client.send(&sender, &recipient, &200_000, &Some(memo.clone()));
+
+    let tx = client.get_transaction(&tx_id);
+    assert_eq!(tx.memo, Some(memo));
+}
+
+#[test]
+fn test_send_without_memo() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.send(&sender, &recipient, &200_000, &None);
+    let tx = client.get_transaction(&tx_id);
+    assert_eq!(tx.memo, None);
+}
+
+// ── transaction pagination tests ───────────────────────
+
+#[test]
+fn test_get_transactions_page() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &5_000_000);
+
+    client.send(&sender, &recipient, &1_000_000, &None);
+    env.ledger().set(soroban_sdk::testutils::LedgerInfo {
+        timestamp: env.ledger().timestamp() + 301,
+        protocol_version: env.ledger().protocol_version(),
+        sequence_number: env.ledger().sequence() + 50,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+    client.send(&sender, &recipient, &1_000_000, &None);
+
+    let page = client.get_transactions_page(&1, &10);
+    assert_eq!(page.len(), 2);
+}
+
+#[test]
+fn test_get_transactions_page_empty() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    let page = client.get_transactions_page(&1, &10);
+    assert_eq!(page.len(), 0);
+}
+
+// ── user transaction history tests ─────────────────────
+
+#[test]
+fn test_query_user_transactions() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &5_000_000);
+
+    client.send(&sender, &recipient, &1_000_000, &None);
+
+    let sender_txs = client.query_user_transactions(&sender, &10, &0);
+    assert!(sender_txs.len() > 0);
+
+    let recipient_txs = client.query_user_transactions(&recipient, &10, &0);
+    assert!(recipient_txs.len() > 0, "recipient should see the incoming tx");
+}
+
+#[test]
+fn test_query_user_transactions_empty() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let unknown = Address::generate(&env);
+    client.init(&admin);
+
+    let txs = client.query_user_transactions(&unknown, &10, &0);
+    assert_eq!(txs.len(), 0);
+}
+
+// ── batch deposit tests ────────────────────────────────
+
+#[test]
+fn test_batch_deposit_multiple_recipients() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+    client.init(&admin);
+
+    let recipients = soroban_sdk::vec![&env, user1.clone(), user2.clone()];
+    let amounts = soroban_sdk::vec![&env, 1_000_000i128, 2_000_000i128];
+    client.batch_deposit(&recipients, &amounts);
+
+    assert_eq!(client.balance(&user1), 1_000_000);
+    assert_eq!(client.balance(&user2), 2_000_000);
+    assert_eq!(client.total_supply(), 3_000_000);
+}
+
+#[test]
+#[should_panic(expected = "recipients and amounts length mismatch")]
+fn test_batch_deposit_mismatched_lengths() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    let recipients = soroban_sdk::vec![&env, user.clone()];
+    let amounts = soroban_sdk::vec![&env, 1_000_000i128, 2_000_000i128];
+    client.batch_deposit(&recipients, &amounts);
+}
+
+// ── collect fees tests ─────────────────────────────────
+
+#[test]
+fn test_collect_fees_transfers_treasury() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let collector = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+    client.set_fee(&1000, &treasury);
+
+    client.send(&sender, &recipient, &200_000, &None);
+    assert_eq!(client.balance(&treasury), 20_000);
+
+    let collected = client.collect_fees(&collector);
+    assert_eq!(collected, 20_000);
+    assert_eq!(client.balance(&treasury), 0);
+    assert_eq!(client.balance(&collector), 20_000);
+}
+
+// ── admin escrow override tests ────────────────────────
+
+#[test]
+fn test_admin_release_escrow() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &None);
+    client.admin_release_escrow(&tx_id);
+
+    assert_eq!(client.balance(&recipient), 400_000);
+    assert_eq!(client.balance(&sender), 600_000);
+}
+
+#[test]
+fn test_admin_cancel_escrow_refunds() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &None);
+    client.admin_cancel_escrow(&tx_id);
+
+    assert_eq!(client.balance(&sender), 1_000_000);
+    assert_eq!(client.balance(&recipient), 0);
+}
+
+// ── recipient confirmation tests ──────────────────────
+
+#[test]
+fn test_confirm_escrow_and_release() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let memo = soroban_sdk::Bytes::from_array(&env, &[1, 2, 3]);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &Some(memo));
+
+    assert!(!client.is_escrow_confirmed(&tx_id));
+    client.confirm_escrow(&tx_id);
+    assert!(client.is_escrow_confirmed(&tx_id));
+
+    client.release_escrow(&tx_id);
+    assert_eq!(client.balance(&recipient), 400_000);
+}
+
+#[test]
+fn test_escrow_no_memo_no_confirmation_needed() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &None);
+    // No memo, so confirmation not required — release directly
+    client.release_escrow(&tx_id);
+    assert_eq!(client.balance(&recipient), 400_000);
+}
+
+// ── upgrade tracking tests ─────────────────────────────
+
+#[test]
+fn test_record_upgrade() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    let new_ver = soroban_sdk::String::from_str(&env, "2.0.0");
+    client.record_upgrade(&new_ver);
+
+    let (count, _, prev) = client.get_upgrade_info();
+    assert_eq!(count, 1);
+    assert_eq!(prev, soroban_sdk::String::from_str(&env, "1.2.0"));
+}
+
+#[test]
+fn test_get_upgrade_info_defaults() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    let (count, _, _) = client.get_upgrade_info();
+    assert_eq!(count, 0);
+}
+
+// ── daily volume limit tests ───────────────────────────
+
+#[test]
+fn test_daily_limit_allows_within_limit() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &2_000_000);
+    client.set_daily_limit(&1_000_000);
+
+    client.send(&sender, &recipient, &500_000, &None);
+    assert_eq!(client.balance(&sender), 1_500_000);
+}
+
+#[test]
+#[should_panic(expected = "daily transfer volume limit exceeded")]
+fn test_daily_limit_blocks_excess() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &5_000_000);
+    client.set_daily_limit(&500_000);
+
+    // First send within limit
+    client.send(&sender, &recipient, &400_000, &None);
+    // Second send exceeds limit
+    client.send(&sender, &recipient, &200_000, &None);
+}
+
+#[test]
+fn test_daily_limit_disabled_by_default() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    assert_eq!(client.get_daily_limit(), 0);
+}
+
+// ── multi-sig admin tests ──────────────────────────────
+
+#[test]
+fn test_add_admin_to_set() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    client.init(&admin);
+
+    client.add_admin(&admin2);
+
+    let admins = client.get_admin_set();
+    assert_eq!(admins.len(), 2);
+}
+
+#[test]
+fn test_remove_admin_from_set() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    client.init(&admin);
+    client.add_admin(&admin2);
+
+    client.remove_admin(&admin2);
+    let admins = client.get_admin_set();
+    assert_eq!(admins.len(), 1);
+}
+
+#[test]
+fn test_set_approval_threshold() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    client.init(&admin);
+    client.add_admin(&admin2);
+
+    client.set_approval_threshold(&2);
+    assert_eq!(client.get_approval_threshold(), 2);
+}
+
 #[test]
 fn test_rate_limit_updated_emits_event_with_correct_data() {
     let (env, client) = setup();

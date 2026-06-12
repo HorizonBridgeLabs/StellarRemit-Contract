@@ -1085,6 +1085,20 @@ fn test_transaction_exists_returns_false_for_invalid_tx() {
 
 #[test]
 #[should_panic(expected = "admin cannot be the contract itself")]
+fn test_transfer_admin_to_contract_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register_contract(None, RemittanceContract);
+    let client = RemittanceContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    // Try to transfer admin to the contract's own address
+    client.transfer_admin(&client.address);
+}
+
+#[test]
+#[should_panic(expected = "admin cannot be the contract itself")]
 fn test_init_with_contract_address_fails() {
     let env = Env::default();
     env.mock_all_auths();

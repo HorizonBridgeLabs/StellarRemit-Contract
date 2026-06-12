@@ -4,7 +4,9 @@
 
 | Version | Supported          |
 |---------|--------------------|
-| 1.1.x   | ✅ Active support  |
+| 1.3.x   | ✅ Active support  |
+| 1.2.x   | ✅ Active support  |
+| 1.1.x   | ❌ End of life     |
 | 1.0.x   | ❌ End of life     |
 
 ## Reporting a Vulnerability
@@ -39,6 +41,15 @@ Admin can pause the contract to halt deposits, sends, and escrows while preservi
 
 ### Self-transfer Prevention
 `sender != recipient` assertion prevents accidental self-transfers.
+
+### Daily Volume Limits
+A configurable per-address daily transfer cap (`set_daily_limit`) prevents abuse. Set to 0 to disable (default). Enforced on `send()` and `escrow_funds()`.
+
+### Multi-Sig Admin
+Multiple admin signers with configurable approval threshold via `add_admin`, `remove_admin`, `set_approval_threshold`. Backward compatible with single admin (default threshold = 1).
+
+### Escrow Dispute Resolution
+Admin functions `admin_release_escrow` and `admin_cancel_escrow` allow resolving disputed escrows, bypassing sender auth and expiry checks.
 
 ### Contract Address Guards
 - `init(admin)` — refuses the contract's own address as admin

@@ -94,6 +94,23 @@ bash deploy.sh
 | `get_user_metadata(user)` | — | Read user metadata |
 | `version()` | — | Return contract version string |
 | `stats()` | — | Aggregate (tx_count, supply, paused, cooldown) |
+| `get_transactions_page(offset, limit)` | — | Paginated transaction query (max 50) |
+| `query_user_transactions(user, limit, offset)` | — | User transaction history |
+| `batch_deposit(recipients, amounts)` | admin | Multi-recipient deposit |
+| `collect_fees(to)` | admin | Collect treasury fees |
+| `admin_release_escrow(tx_id)` | admin | Admin force-release escrow |
+| `admin_cancel_escrow(tx_id)` | admin | Admin force-cancel escrow |
+| `confirm_escrow(tx_id)` | recipient | Recipient confirms escrow |
+| `is_escrow_confirmed(tx_id)` | — | Check recipient confirmation |
+| `record_upgrade(new_version)` | admin | Record contract upgrade |
+| `get_upgrade_info()` | — | Upgrade history (count, time, prev) |
+| `set_daily_limit(limit)` | admin | Set daily transfer limit |
+| `get_daily_limit()` | — | Read daily transfer limit |
+| `add_admin(addr)` | admin | Add to multi-sig admin set |
+| `remove_admin(addr)` | admin | Remove from admin set |
+| `set_approval_threshold(n)` | admin | Set multi-sig threshold |
+| `get_admin_set()` | — | Read admin set |
+| `get_approval_threshold()` | — | Read threshold |
 
 ---
 
@@ -114,6 +131,16 @@ bash deploy.sh
 | `ttl_extended` | `extend_ttl` | `ledgers` |
 | `metadata_updated` | `set_user_metadata` | `(user, key)` |
 | `escrow_transitioned` | `escrow_funds` | `(tx_id, status)` |
+| `batch_deposit` | `batch_deposit` | `count` |
+| `fees_collected` | `collect_fees` | `(to, amount)` |
+| `admin_escrow_released` | `admin_release_escrow` | `(tx_id, recipient)` |
+| `admin_escrow_cancelled` | `admin_cancel_escrow` | `(tx_id, amount)` |
+| `escrow_confirmed` | `confirm_escrow` | `tx_id` |
+| `contract_upgraded` | `record_upgrade` | `(count, version)` |
+| `daily_limit_updated` | `set_daily_limit` | `limit` |
+| `admin_added` | `add_admin` | `addr` |
+| `admin_removed` | `remove_admin` | `addr` |
+| `threshold_updated` | `set_approval_threshold` | `threshold` |
 
 ---
 
@@ -239,6 +266,11 @@ soroban contract invoke --id $ID --rpc-url $RPC --network-passphrase "$PASS" \
 | `DataKey::TotalSupply` | Persistent | Total deposited funds tracker |
 | `DataKey::FeeConfig` | Instance | Fee rate and treasury address |
 | `DataKey::UserMetadata(addr)` | Persistent | Per-user key-value metadata |
+| `DataKey::DailyVolume(addr)` | Persistent | Daily transfer volume counter |
+| `DataKey::DailyLimit` | Instance | Daily transfer volume limit |
+| `DataKey::UpgradeHistory` | Instance | Contract upgrade history |
+| `DataKey::AdminSet` | Instance | Multi-sig admin address set |
+| `DataKey::ApprovalThreshold` | Instance | Multi-sig approval threshold |
 
 ---
 

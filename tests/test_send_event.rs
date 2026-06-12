@@ -21,7 +21,7 @@ fn test_send_emits_transfer_created_event() {
     client.init(&admin);
     client.deposit(&sender, &10_000_000);
 
-    let tx_id = client.send(&sender, &recipient, &5_000_000);
+    let tx_id = client.send(&sender, &recipient, &5_000_000, &None);
 
     // Check that transfer_created event was published
     let events = env.events().all();

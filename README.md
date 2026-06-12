@@ -217,6 +217,10 @@ soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphra
 # Get transaction
 soroban contract invoke --id $ID --source $SRC --rpc-url $RPC --network-passphrase "$PASS" \
   -- get_transaction --transaction_id 1
+
+# Check if transaction exists
+soroban contract invoke --id $ID --rpc-url $RPC --network-passphrase "$PASS" \
+  -- transaction_exists --transaction_id 1
 ```
 
 ---

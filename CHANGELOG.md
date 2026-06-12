@@ -4,6 +4,27 @@ All notable changes to StellarRemit-Contract.
 
 ---
 
+## [1.2.0] — 2026-06-12
+
+### Added
+- **`transaction_exists(tx_id)`** — Check if a transaction exists without panicking
+- **`TransactionStatus::Pending`** — Now used in escrow_funds flow before transitioning to Escrowed
+
+### Changed
+- **`extend_ttl(ledgers)`** — Now also extends Balance and UserMetadata entries for all addresses found in transactions
+- **`set_user_metadata(user, key, value)`** — Added key/value length validation (max 128/1024 chars)
+- **`init(admin)`** — Added guard preventing admin from being the contract itself
+- **`transfer_admin(new_admin)`** — Added guard preventing new admin from being the contract itself
+- **`set_fee(fee_bps, treasury)`** — Added guard preventing treasury from being the contract itself
+- **`withdraw(from, to, amount)`** — Added from!=to guard and contract-destination guard
+
+### Security
+- Comprehensive require_auth() audit and improvements (#70)
+- Contract address guards on all admin/sensitive functions
+- Input validation hardening for metadata, deposits, and transfers
+
+---
+
 ## [1.1.0] — 2026-06-11
 
 ### Added

@@ -1217,7 +1217,7 @@ fn test_send_without_memo() {
     client.init(&admin);
     client.deposit(&sender, &1_000_000);
 
-    let tx_id = client.send(&sender, &recipient, &200_000, &None, &None);
+    let tx_id = client.send(&sender, &recipient, &200_000, &None);
     let tx = client.get_transaction(&tx_id);
     assert_eq!(tx.memo, None);
 }
@@ -1233,7 +1233,7 @@ fn test_get_transactions_page() {
     client.init(&admin);
     client.deposit(&sender, &5_000_000);
 
-    client.send(&sender, &recipient, &1_000_000, &None, &None);
+    client.send(&sender, &recipient, &1_000_000, &None);
     env.ledger().set(soroban_sdk::testutils::LedgerInfo {
         timestamp: env.ledger().timestamp() + 301,
         protocol_version: env.ledger().protocol_version(),
@@ -1244,7 +1244,7 @@ fn test_get_transactions_page() {
         min_persistent_entry_ttl: 10,
         max_entry_ttl: 3110400,
     });
-    client.send(&sender, &recipient, &1_000_000, &None, &None);
+    client.send(&sender, &recipient, &1_000_000, &None);
 
     let page = client.get_transactions_page(&1, &10);
     assert_eq!(page.len(), 2);
@@ -1271,7 +1271,7 @@ fn test_query_user_transactions() {
     client.init(&admin);
     client.deposit(&sender, &5_000_000);
 
-    client.send(&sender, &recipient, &1_000_000, &None, &None);
+    client.send(&sender, &recipient, &1_000_000, &None);
 
     let sender_txs = client.query_user_transactions(&sender, &10, &0);
     assert!(sender_txs.len() > 0);
@@ -1340,7 +1340,7 @@ fn test_collect_fees_transfers_treasury() {
     client.deposit(&sender, &1_000_000);
     client.set_fee(&1000, &treasury);
 
-    client.send(&sender, &recipient, &200_000, &None, &None);
+    client.send(&sender, &recipient, &200_000, &None);
     assert_eq!(client.balance(&treasury), 20_000);
 
     let collected = client.collect_fees(&collector);
@@ -1360,7 +1360,7 @@ fn test_admin_release_escrow() {
     client.init(&admin);
     client.deposit(&sender, &1_000_000);
 
-    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &None, &None, &None);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, , &None)None);
     client.admin_release_escrow(&tx_id);
 
     assert_eq!(client.balance(&recipient), 400_000);
@@ -1376,7 +1376,7 @@ fn test_admin_cancel_escrow_refunds() {
     client.init(&admin);
     client.deposit(&sender, &1_000_000);
 
-    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &None, &None, &None);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, , &None)None);
     client.admin_cancel_escrow(&tx_id);
 
     assert_eq!(client.balance(&sender), 1_000_000);
@@ -1395,7 +1395,7 @@ fn test_confirm_escrow_and_release() {
     client.deposit(&sender, &1_000_000);
 
     let memo = soroban_sdk::Bytes::from_array(&env, &[1, 2, 3]);
-    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &Some(memo, &None, &None));
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &Some(memo, &None));
 
     assert!(!client.is_escrow_confirmed(&tx_id));
     client.confirm_escrow(&tx_id);
@@ -1414,7 +1414,7 @@ fn test_escrow_no_memo_no_confirmation_needed() {
     client.init(&admin);
     client.deposit(&sender, &1_000_000);
 
-    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, &None, &None, &None);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0, , &None)None);
     // No memo, so confirmation not required — release directly
     client.release_escrow(&tx_id);
     assert_eq!(client.balance(&recipient), 400_000);
@@ -1431,7 +1431,7 @@ fn test_record_upgrade() {
     let new_ver = soroban_sdk::String::from_str(&env, "2.0.0");
     client.record_upgrade(&new_ver);
 
-    let (count, _, prev) = client.get_upgrade_info();
+    let (count, _, _prev) = client.get_upgrade_info();
     assert_eq!(count, 1);
     assert_eq!(prev, soroban_sdk::String::from_str(&env, "1.2.0"));
 }
@@ -1458,7 +1458,7 @@ fn test_daily_limit_allows_within_limit() {
     client.deposit(&sender, &2_000_000);
     client.set_daily_limit(&1_000_000);
 
-    client.send(&sender, &recipient, &500_000, &None, &None);
+    client.send(&sender, &recipient, &500_000, &None);
     assert_eq!(client.balance(&sender), 1_500_000);
 }
 
@@ -1474,9 +1474,9 @@ fn test_daily_limit_blocks_excess() {
     client.set_daily_limit(&500_000);
 
     // First send within limit
-    client.send(&sender, &recipient, &400_000, &None, &None);
+    client.send(&sender, &recipient, &400_000, &None);
     // Second send exceeds limit
-    client.send(&sender, &recipient, &200_000, &None, &None);
+    client.send(&sender, &recipient, &200_000, &None);
 }
 
 #[test]
@@ -1571,7 +1571,7 @@ fn test_get_transactions_page_returns_page() {
     let recipient = Address::generate(&env);
     client.init(&admin);
     client.deposit(&sender, &5_000_000);
-    client.send(&sender, &recipient, &1_000_000, &None, &None);
+    client.send(&sender, &recipient, &1_000_000, &None);
     env.ledger().set(soroban_sdk::testutils::LedgerInfo {
         timestamp: env.ledger().timestamp() + 301,
         protocol_version: env.ledger().protocol_version(),
@@ -1582,7 +1582,7 @@ fn test_get_transactions_page_returns_page() {
         min_persistent_entry_ttl: 10,
         max_entry_ttl: 3110400,
     });
-    client.send(&sender, &recipient, &1_000_000, &None, &None);
+    client.send(&sender, &recipient, &1_000_000, &None);
     let page = client.get_transactions_page(&1, &10);
     assert_eq!(page.len(), 2);
 }
@@ -1595,7 +1595,7 @@ fn test_query_user_transactions_finds_user() {
     let recipient = Address::generate(&env);
     client.init(&admin);
     client.deposit(&sender, &5_000_000);
-    client.send(&sender, &recipient, &1_000_000, &None, &None);
+    client.send(&sender, &recipient, &1_000_000, &None);
     let txs = client.query_user_transactions(&sender, &10, &0);
     assert!(txs.len() > 0);
 }
@@ -1626,7 +1626,7 @@ fn test_collect_fees_transfers_treasury_balance() {
     client.init(&admin);
     client.deposit(&sender, &1_000_000);
     client.set_fee(&1000, &treasury);
-    client.send(&sender, &recipient, &200_000, &None, &None);
+    client.send(&sender, &recipient, &200_000, &None);
     let collected = client.collect_fees(&dest);
     assert_eq!(collected, 20_000);
     assert_eq!(client.balance(&treasury), 0);
@@ -1681,7 +1681,7 @@ fn test_record_upgrade_increments_count() {
     let admin = Address::generate(&env);
     client.init(&admin);
     client.record_upgrade(&soroban_sdk::String::from_str(&env, "2.0.0"));
-    let (count, _, prev) = client.get_upgrade_info();
+    let (count, _, _prev) = client.get_upgrade_info();
     assert_eq!(count, 1);
 }
 
@@ -1694,7 +1694,7 @@ fn test_daily_limit_blocks_over_limit() {
     client.init(&admin);
     client.deposit(&sender, &5_000_000);
     client.set_daily_limit(&500_000);
-    client.send(&sender, &recipient, &400_000, &None, &None);
+    client.send(&sender, &recipient, &400_000, &None);
 }
 
 #[test]
@@ -1744,7 +1744,7 @@ fn test_send_without_memo_is_none() {
     client.init(&admin);
     client.deposit(&sender, &1_000_000);
 
-    let tx_id = client.send(&sender, &recipient, &200_000, &None, &None);
+    let tx_id = client.send(&sender, &recipient, &200_000, &None);
     let tx = client.get_transaction(&tx_id);
     assert_eq!(tx.memo, None);
 }
@@ -1759,7 +1759,7 @@ fn test_get_transactions_page_returns_page() {
     let recipient = Address::generate(&env);
     client.init(&admin);
     client.deposit(&sender, &5_000_000);
-    client.send(&sender, &recipient, &1_000_000, &None, &None);
+    client.send(&sender, &recipient, &1_000_000, &None);
     env.ledger().set(soroban_sdk::testutils::LedgerInfo {
         timestamp: env.ledger().timestamp() + 301,
         protocol_version: env.ledger().protocol_version(),
@@ -1770,7 +1770,7 @@ fn test_get_transactions_page_returns_page() {
         min_persistent_entry_ttl: 10,
         max_entry_ttl: 3110400,
     });
-    client.send(&sender, &recipient, &1_000_000, &None, &None);
+    client.send(&sender, &recipient, &1_000_000, &None);
 
     let page = client.get_transactions_page(&1, &10);
     assert_eq!(page.len(), 2);
@@ -1786,7 +1786,7 @@ fn test_query_user_transactions_finds_sender() {
     let recipient = Address::generate(&env);
     client.init(&admin);
     client.deposit(&sender, &5_000_000);
-    client.send(&sender, &recipient, &1_000_000, &None, &None);
+    client.send(&sender, &recipient, &1_000_000, &None);
 
     let txs = client.query_user_transactions(&sender, &10, &0);
     assert!(txs.len() > 0);
@@ -1800,7 +1800,7 @@ fn test_query_user_transactions_finds_recipient() {
     let recipient = Address::generate(&env);
     client.init(&admin);
     client.deposit(&sender, &5_000_000);
-    client.send(&sender, &recipient, &1_000_000, &None, &None);
+    client.send(&sender, &recipient, &1_000_000, &None);
 
     let txs = client.query_user_transactions(&recipient, &10, &0);
     assert!(txs.len() > 0);
@@ -1852,7 +1852,7 @@ fn test_collect_fees_transfers_treasury_balance() {
     client.init(&admin);
     client.deposit(&sender, &1_000_000);
     client.set_fee(&1000, &treasury);
-    client.send(&sender, &recipient, &200_000, &None, &None);
+    client.send(&sender, &recipient, &200_000, &None);
 
     let collected = client.collect_fees(&dest);
     assert_eq!(collected, 20_000);
@@ -1918,7 +1918,7 @@ fn test_record_upgrade_increments_count() {
     client.init(&admin);
 
     client.record_upgrade(&soroban_sdk::String::from_str(&env, "2.0.0"));
-    let (count, _, prev) = client.get_upgrade_info();
+    let (count, _, _prev) = client.get_upgrade_info();
     assert_eq!(count, 1);
     assert_eq!(prev, soroban_sdk::String::from_str(&env, "1.2.0"));
 }
@@ -1935,7 +1935,7 @@ fn test_daily_limit_allows_under_limit() {
     client.deposit(&sender, &2_000_000);
     client.set_daily_limit(&1_000_000);
 
-    client.send(&sender, &recipient, &500_000, &None, &None);
+    client.send(&sender, &recipient, &500_000, &None);
     assert_eq!(client.balance(&sender), 1_500_000);
 }
 
@@ -1950,8 +1950,8 @@ fn test_daily_limit_blocks_over_limit() {
     client.deposit(&sender, &5_000_000);
     client.set_daily_limit(&500_000);
 
-    client.send(&sender, &recipient, &400_000, &None, &None);
-    client.send(&sender, &recipient, &200_000, &None, &None);
+    client.send(&sender, &recipient, &400_000, &None);
+    client.send(&sender, &recipient, &200_000, &None);
 }
 
 #[test]

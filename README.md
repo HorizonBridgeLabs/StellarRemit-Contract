@@ -80,6 +80,7 @@ bash deploy.sh
 | `withdraw(from, to, amount)` | admin | Admin withdraw from any balance |
 | `get_admin()` | — | Read current admin address |
 | `get_transaction(tx_id)` | — | Read transaction by ID |
+| `transaction_exists(tx_id)` | — | Check if a transaction exists (no panic) |
 | `balance(addr)` | — | Read address balance |
 | `tx_count()` | — | Read total transaction count |
 | `is_paused()` | — | Check if contract is paused |
@@ -89,7 +90,7 @@ bash deploy.sh
 | `set_fee(bps, treasury)` | admin | Configure fee percentage and treasury |
 | `get_fee()` | — | Read current fee configuration |
 | `extend_ttl(ledgers)` | admin | Extend persistent storage TTL |
-| `set_user_metadata(user, key, value)` | user | Store per-user metadata |
+| `set_user_metadata(user, key, value)` | user | Store per-user metadata (validated lengths) |
 | `get_user_metadata(user)` | — | Read user metadata |
 | `version()` | — | Return contract version string |
 | `stats()` | — | Aggregate (tx_count, supply, paused, cooldown) |

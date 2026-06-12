@@ -18,11 +18,20 @@ pub struct RemittanceContract;
 #[contractimpl]
 impl RemittanceContract {
     /// Initialize contract with an admin address for the remmittanceContract.
+    ///
+    /// # Security
+    /// - Requires admin auth for initialization
+    /// - Guards against double initialization
+    /// - Validates admin is not the contract itself
     pub fn init(env: Env, admin: Address) {
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
         admin.require_auth();
+        assert!(
+            admin != env.current_contract_address(),
+            "admin cannot be the contract itself"
+        );
         const DEFAULT_COOLDOWN: u64 = 300;
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::TxCount, &0u64);

@@ -71,7 +71,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           },
@@ -292,10 +293,24 @@
                     },
                     {
                       "key": {
+                        "symbol": "memo"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
                         "symbol": "recipient"
                       },
                       "val": {
                         "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "recipient_confirmed"
+                      },
+                      "val": {
+                        "bool": false
                       }
                     },
                     {
@@ -718,7 +733,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           }
@@ -816,7 +832,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           }
@@ -839,7 +856,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'rate limit exceeded \\xe2\\x80\\x94 wait before next operation' from contract function 'Symbol(obj#123)'"
+                  "string": "caught panic 'rate limit exceeded \\xe2\\x80\\x94 wait before next operation' from contract function 'Symbol(obj#131)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
@@ -855,7 +872,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           }
@@ -929,7 +947,8 @@
                     },
                     {
                       "u32": 0
-                    }
+                    },
+                    "void"
                   ]
                 }
               ]

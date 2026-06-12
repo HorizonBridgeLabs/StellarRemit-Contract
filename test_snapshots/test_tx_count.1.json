@@ -69,7 +69,8 @@
                     "hi": 0,
                     "lo": 1000000
                   }
-                }
+                },
+                "void"
               ]
             }
           },
@@ -101,7 +102,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           },
@@ -370,10 +372,24 @@
                     },
                     {
                       "key": {
+                        "symbol": "memo"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
                         "symbol": "recipient"
                       },
                       "val": {
                         "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "recipient_confirmed"
+                      },
+                      "val": {
+                        "bool": false
                       }
                     },
                     {
@@ -479,10 +495,24 @@
                     },
                     {
                       "key": {
+                        "symbol": "memo"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
                         "symbol": "recipient"
                       },
                       "val": {
                         "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "recipient_confirmed"
+                      },
+                      "val": {
+                        "bool": false
                       }
                     },
                     {
@@ -982,7 +1012,8 @@
                     "hi": 0,
                     "lo": 1000000
                   }
-                }
+                },
+                "void"
               ]
             }
           }
@@ -1157,7 +1188,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           }

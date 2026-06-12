@@ -611,7 +611,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           }
@@ -634,7 +635,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'contract is paused' from contract function 'Symbol(obj#95)'"
+                  "string": "caught panic 'contract is paused' from contract function 'Symbol(obj#97)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
@@ -650,7 +651,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           }
@@ -724,7 +726,8 @@
                     },
                     {
                       "u32": 0
-                    }
+                    },
+                    "void"
                   ]
                 }
               ]

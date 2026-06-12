@@ -71,7 +71,8 @@
                 },
                 {
                   "u32": 10
-                }
+                },
+                "void"
               ]
             }
           },
@@ -292,10 +293,24 @@
                     },
                     {
                       "key": {
+                        "symbol": "memo"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
                         "symbol": "recipient"
                       },
                       "val": {
                         "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "recipient_confirmed"
+                      },
+                      "val": {
+                        "bool": false
                       }
                     },
                     {
@@ -718,7 +733,8 @@
                 },
                 {
                   "u32": 10
-                }
+                },
+                "void"
               ]
             }
           }
@@ -823,7 +839,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'escrow not yet expired' from contract function 'Symbol(obj#123)'"
+                  "string": "caught panic 'escrow not yet expired' from contract function 'Symbol(obj#131)'"
                 },
                 {
                   "u64": 1

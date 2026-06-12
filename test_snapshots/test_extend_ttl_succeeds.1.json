@@ -68,7 +68,8 @@
                     "hi": 0,
                     "lo": 200000
                   }
-                }
+                },
+                "void"
               ]
             }
           },
@@ -151,7 +152,7 @@
             },
             "ext": "v0"
           },
-          4095
+          5000
         ]
       ],
       [
@@ -199,7 +200,7 @@
             },
             "ext": "v0"
           },
-          4095
+          5000
         ]
       ],
       [
@@ -355,10 +356,24 @@
                     },
                     {
                       "key": {
+                        "symbol": "memo"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
                         "symbol": "recipient"
                       },
                       "val": {
                         "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "recipient_confirmed"
+                      },
+                      "val": {
+                        "bool": false
                       }
                     },
                     {
@@ -811,7 +826,8 @@
                     "hi": 0,
                     "lo": 200000
                   }
-                }
+                },
+                "void"
               ]
             }
           }

@@ -303,7 +303,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'transaction not found' from contract function 'Symbol(obj#27)'"
+                  "string": "caught panic 'transaction not found' from contract function 'Symbol(obj#29)'"
                 },
                 {
                   "u64": 999

@@ -71,7 +71,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           },
@@ -359,10 +360,24 @@
                     },
                     {
                       "key": {
+                        "symbol": "memo"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
                         "symbol": "recipient"
                       },
                       "val": {
                         "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "recipient_confirmed"
+                      },
+                      "val": {
+                        "bool": false
                       }
                     },
                     {
@@ -818,7 +833,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           }
@@ -1000,7 +1016,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'not in escrow' from contract function 'Symbol(obj#179)'"
+                  "string": "caught panic 'not in escrow' from contract function 'Symbol(obj#191)'"
                 },
                 {
                   "u64": 1

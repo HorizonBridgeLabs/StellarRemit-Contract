@@ -500,7 +500,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           }
@@ -523,7 +524,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'cannot escrow to yourself' from contract function 'Symbol(obj#65)'"
+                  "string": "caught panic 'cannot escrow to yourself' from contract function 'Symbol(obj#67)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
@@ -539,7 +540,8 @@
                 },
                 {
                   "u32": 0
-                }
+                },
+                "void"
               ]
             }
           }
@@ -613,7 +615,8 @@
                     },
                     {
                       "u32": 0
-                    }
+                    },
+                    "void"
                   ]
                 }
               ]

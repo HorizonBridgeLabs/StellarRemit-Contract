@@ -88,7 +88,8 @@
                     "hi": 0,
                     "lo": 500000
                   }
-                }
+                },
+                "void"
               ]
             }
           },
@@ -116,7 +117,8 @@
                     "hi": 0,
                     "lo": 200000
                   }
-                }
+                },
+                "void"
               ]
             }
           },
@@ -384,10 +386,24 @@
                     },
                     {
                       "key": {
+                        "symbol": "memo"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
                         "symbol": "recipient"
                       },
                       "val": {
                         "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "recipient_confirmed"
+                      },
+                      "val": {
+                        "bool": false
                       }
                     },
                     {
@@ -493,10 +509,24 @@
                     },
                     {
                       "key": {
+                        "symbol": "memo"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
                         "symbol": "recipient"
                       },
                       "val": {
                         "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "recipient_confirmed"
+                      },
+                      "val": {
+                        "bool": false
                       }
                     },
                     {
@@ -1096,7 +1126,8 @@
                     "hi": 0,
                     "lo": 500000
                   }
-                }
+                },
+                "void"
               ]
             }
           }
@@ -1221,7 +1252,8 @@
                     "hi": 0,
                     "lo": 200000
                   }
-                }
+                },
+                "void"
               ]
             }
           }

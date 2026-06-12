@@ -384,9 +384,18 @@ impl RemittanceContract {
 
     /// Admin-only: withdraw funds from the contract (e.g., collected fees).
     /// `from` is the address whose balance to draw from; `to` receives the funds.
+    ///
+    /// # Security
+    /// Requires admin auth. Validates that from != to (no self-transfer).
+    /// The destination address must not be the contract itself.
     pub fn withdraw(env: Env, from: Address, to: Address, amount: i128) {
         Self::require_admin(&env);
         assert!(amount > 0, "withdraw amount must be greater than zero");
+        assert!(from != to, "cannot withdraw to same address");
+        assert!(
+            to != env.current_contract_address(),
+            "cannot withdraw to contract itself"
+        );
 
         let from_key = DataKey::Balance(from.clone());
         let from_bal: i128 = env.storage().persistent().get(&from_key).unwrap_or(0);

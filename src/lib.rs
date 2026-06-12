@@ -477,8 +477,8 @@ impl RemittanceContract {
         value: soroban_sdk::String,
     ) {
         user.require_auth();
-        assert!(key.len() > 0, "metadata key must not be empty");
-        assert!(value.len() > 0, "metadata value must not be empty");
+        assert!(!key.is_empty(), "metadata key must not be empty");
+        assert!(!value.is_empty(), "metadata value must not be empty");
         assert!(key.len() <= 128, "metadata key exceeds maximum length");
         assert!(value.len() <= 1024, "metadata value exceeds maximum length");
         let storage_key = DataKey::UserMetadata(user.clone());
@@ -514,9 +514,11 @@ impl RemittanceContract {
         let threshold = ledgers;
 
         // Extend TotalSupply entry
-        env.storage()
-            .persistent()
-            .extend_ttl(&DataKey::TotalSupply, threshold, threshold);
+        env.storage().persistent().extend_ttl(
+            &DataKey::TotalSupply,
+            threshold,
+            threshold,
+        );
 
         // Collect unique addresses from all transactions and extend
         // their Balance and UserMetadata entries alongside the transactions.
@@ -525,9 +527,11 @@ impl RemittanceContract {
             let tx_key = DataKey::Transaction(id);
             if env.storage().persistent().has(&tx_key) {
                 // Extend the transaction entry itself
-                env.storage()
-                    .persistent()
-                    .extend_ttl(&tx_key, threshold, threshold);
+                env.storage().persistent().extend_ttl(
+                    &tx_key,
+                    threshold,
+                    threshold,
+                );
 
                 // Read the transaction to find associated addresses
                 if let Some(tx) = env
@@ -538,30 +542,38 @@ impl RemittanceContract {
                     // Extend Balance for sender
                     let sender_bal_key = DataKey::Balance(tx.sender.clone());
                     if env.storage().persistent().has(&sender_bal_key) {
-                        env.storage()
-                            .persistent()
-                            .extend_ttl(&sender_bal_key, threshold, threshold);
+                        env.storage().persistent().extend_ttl(
+                            &sender_bal_key,
+                            threshold,
+                            threshold,
+                        );
                     }
                     // Extend Balance for recipient
                     let rec_bal_key = DataKey::Balance(tx.recipient.clone());
                     if env.storage().persistent().has(&rec_bal_key) {
-                        env.storage()
-                            .persistent()
-                            .extend_ttl(&rec_bal_key, threshold, threshold);
+                        env.storage().persistent().extend_ttl(
+                            &rec_bal_key,
+                            threshold,
+                            threshold,
+                        );
                     }
                     // Extend UserMetadata for sender
                     let sender_meta_key = DataKey::UserMetadata(tx.sender.clone());
                     if env.storage().persistent().has(&sender_meta_key) {
-                        env.storage()
-                            .persistent()
-                            .extend_ttl(&sender_meta_key, threshold, threshold);
+                        env.storage().persistent().extend_ttl(
+                            &sender_meta_key,
+                            threshold,
+                            threshold,
+                        );
                     }
                     // Extend UserMetadata for recipient
                     let rec_meta_key = DataKey::UserMetadata(tx.recipient);
                     if env.storage().persistent().has(&rec_meta_key) {
-                        env.storage()
-                            .persistent()
-                            .extend_ttl(&rec_meta_key, threshold, threshold);
+                        env.storage().persistent().extend_ttl(
+                            &rec_meta_key,
+                            threshold,
+                            threshold,
+                        );
                     }
                 }
             }

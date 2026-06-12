@@ -542,6 +542,14 @@ impl RemittanceContract {
             .expect("transaction not found")
     }
 
+    /// Check whether a transaction with the given ID exists.
+    /// Returns true if the transaction is stored, false otherwise.
+    pub fn transaction_exists(env: Env, transaction_id: u64) -> bool {
+        env.storage()
+            .persistent()
+            .has(&DataKey::Transaction(transaction_id))
+    }
+
     /// Read balance for an address.
     pub fn balance(env: Env, addr: Address) -> i128 {
         env.storage()

@@ -573,9 +573,17 @@ impl RemittanceContract {
 
     /// Admin-only: configure the fee (basis points) and treasury address.
     /// Set fee_bps to 0 to disable fees. Max: 10_000 bps (100%).
+    ///
+    /// # Security
+    /// The treasury address must not be the contract itself to prevent
+    /// fee funds from becoming permanently locked.
     pub fn set_fee(env: Env, fee_bps: u32, treasury: Address) {
         Self::require_admin(&env);
         assert!(fee_bps <= 10_000, "fee basis points must not exceed 10_000");
+        assert!(
+            treasury != env.current_contract_address(),
+            "treasury cannot be the contract itself"
+        );
 
         let config = FeeConfig {
             fee_bps,

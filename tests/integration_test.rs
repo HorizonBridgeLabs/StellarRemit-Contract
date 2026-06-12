@@ -585,6 +585,20 @@ fn test_rate_limit_allows_after_cooldown() {
 
 // ── withdraw tests ──────────────────────────────────────
 
+// ── withdraw validation tests ──────────────────────────
+
+#[test]
+#[should_panic(expected = "cannot withdraw to same address")]
+fn test_withdraw_same_address_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&admin, &5_000_000);
+
+    // from == to should panic
+    client.withdraw(&admin, &admin, &1_000_000);
+}
+
 #[test]
 fn test_withdraw_moves_funds() {
     let (env, client) = setup();

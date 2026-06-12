@@ -30,6 +30,10 @@ pub struct Transaction {
     pub timestamp: u64,
     /// Ledger sequence number after which this escrow expires (0 = no expiry)
     pub expires_at: u64,
+    /// Optional payment reference / memo (max 64 bytes)
+    pub memo: Option<soroban_sdk::Bytes>,
+    /// Recipient has confirmed escrow (for confirmation flow)
+    pub recipient_confirmed: bool,
 }
 
 #[contracttype]
@@ -55,6 +59,16 @@ pub enum DataKey {
     FeeConfig,
     /// Last transaction timestamp for rate limiting
     LastTxTime(Address),
+    /// Daily transfer volume per address (ledger day, amount)
+    DailyVolume(Address),
+    /// Daily transfer volume limit per address (0 = disabled)
+    DailyLimit,
+    /// Contract upgrade history
+    UpgradeHistory,
+    /// Multi-sig admin set (list of admin addresses)
+    AdminSet,
+    /// Multi-sig approval threshold
+    ApprovalThreshold,
 }
 
 impl DataKey {
@@ -85,8 +99,17 @@ impl DataKey {
             | Self::Transaction(_)
             | Self::UserMetadata(_)
             | Self::TotalSupply
-            | Self::LastTxTime(_) => true,
-            Self::Admin | Self::TxCount | Self::Config | Self::Paused | Self::FeeConfig => false,
+            | Self::LastTxTime(_)
+            | Self::DailyVolume(_) => true,
+            Self::Admin
+            | Self::TxCount
+            | Self::Config
+            | Self::Paused
+            | Self::FeeConfig
+            | Self::DailyLimit
+            | Self::UpgradeHistory
+            | Self::AdminSet
+            | Self::ApprovalThreshold => false,
         }
     }
 
@@ -108,6 +131,11 @@ impl DataKey {
             Self::TotalSupply => "Total token supply",
             Self::FeeConfig => "Fee configuration settings",
             Self::LastTxTime(_) => "Last transaction timestamp",
+            Self::DailyVolume(_) => "Daily transfer volume",
+            Self::DailyLimit => "Daily transfer volume limit",
+            Self::UpgradeHistory => "Contract upgrade history",
+            Self::AdminSet => "Multi-sig admin set",
+            Self::ApprovalThreshold => "Multi-sig approval threshold",
         }
     }
 }

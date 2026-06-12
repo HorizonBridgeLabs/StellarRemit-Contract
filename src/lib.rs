@@ -457,6 +457,10 @@ impl RemittanceContract {
 
     /// Store arbitrary user metadata (e.g., KYC status, profile info).
     /// Only the user themselves can set their own metadata.
+    ///
+    /// # Security
+    /// Requires user auth. Validates that the key is not empty and
+    /// the value length does not exceed reasonable bounds.
     pub fn set_user_metadata(
         env: Env,
         user: Address,
@@ -464,6 +468,10 @@ impl RemittanceContract {
         value: soroban_sdk::String,
     ) {
         user.require_auth();
+        assert!(key.len() > 0, "metadata key must not be empty");
+        assert!(value.len() > 0, "metadata value must not be empty");
+        assert!(key.len() <= 128, "metadata key exceeds maximum length");
+        assert!(value.len() <= 1024, "metadata value exceeds maximum length");
         let storage_key = DataKey::UserMetadata(user.clone());
         env.storage()
             .persistent()

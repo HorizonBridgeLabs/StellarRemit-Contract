@@ -1067,6 +1067,70 @@ fn test_transaction_exists_returns_false_for_invalid_tx() {
     assert!(!client.transaction_exists(&0));
 }
 
+// ── security validation tests ──────────────────────────
+
+#[test]
+#[should_panic(expected = "admin cannot be the contract itself")]
+fn test_init_with_contract_address_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register_contract(None, RemittanceContract);
+    let client = RemittanceContractClient::new(&env, &contract_id);
+    // Try to use the contract's own address as admin
+    client.init(&client.address);
+}
+
+#[test]
+#[should_panic(expected = "treasury cannot be the contract itself")]
+fn test_set_fee_with_contract_treasury_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    client.set_fee(&500, &client.address);
+}
+
+#[test]
+#[should_panic(expected = "metadata key must not be empty")]
+fn test_set_user_metadata_empty_key_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    let key = soroban_sdk::String::from_str(&env, "");
+    let value = soroban_sdk::String::from_str(&env, "verified");
+    client.set_user_metadata(&user, &key, &value);
+}
+
+#[test]
+#[should_panic(expected = "metadata value must not be empty")]
+fn test_set_user_metadata_empty_value_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    let key = soroban_sdk::String::from_str(&env, "kyc_status");
+    let value = soroban_sdk::String::from_str(&env, "");
+    client.set_user_metadata(&user, &key, &value);
+}
+
+#[test]
+fn test_set_user_metadata_long_key_succeeds() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    let key = soroban_sdk::String::from_str(&env, &"a".repeat(128));
+    let value = soroban_sdk::String::from_str(&env, "verified");
+    client.set_user_metadata(&user, &key, &value);
+
+    let result = client.get_user_metadata(&user);
+    assert!(result.is_some());
+}
+
 #[test]
 fn test_transaction_exists_after_escrow() {
     let (env, client) = setup();

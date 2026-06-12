@@ -18,9 +18,9 @@ We aim to acknowledge reports within 48 hours and provide a fix within 7 days.
 ## Security Model
 
 ### Authorization
-- **Admin-only functions:** `init`, `transfer_admin`, `pause`, `unpause`, `withdraw`, `set_fee`, `set_rate_limit`, `extend_ttl`
-- **User-authenticated:** `deposit`, `send`, `escrow_funds`, `release_escrow`, `cancel_escrow`, `set_user_metadata`
-- **Public reads:** `balance`, `get_transaction`, `get_admin`, `is_paused`, `total_supply`, `tx_count`, `get_fee`, `get_rate_limit`, `get_user_metadata`, `version`, `stats`
+- **Admin-only functions:** `init`, `transfer_admin`, `pause`, `unpause`, `withdraw`, `set_fee`, `set_rate_limit`, `extend_ttl`, `batch_deposit`, `collect_fees`, `admin_release_escrow`, `admin_cancel_escrow`, `record_upgrade`, `set_daily_limit`, `add_admin`, `remove_admin`, `set_approval_threshold`
+- **User-authenticated:** `deposit`, `send`, `escrow_funds`, `release_escrow`, `cancel_escrow`, `set_user_metadata`, `confirm_escrow`
+- **Public reads:** `balance`, `get_transaction`, `transaction_exists`, `get_admin`, `is_paused`, `total_supply`, `tx_count`, `get_fee`, `get_rate_limit`, `get_user_metadata`, `version`, `stats`, `get_transactions_page`, `query_user_transactions`, `is_escrow_confirmed`, `get_upgrade_info`, `get_daily_limit`, `get_admin_set`, `get_approval_threshold`
 
 ### Overflow Protection
 All balance arithmetic uses `checked_add` / `checked_sub` with explicit panic on overflow. No raw `+` or `-` operators on user balances.

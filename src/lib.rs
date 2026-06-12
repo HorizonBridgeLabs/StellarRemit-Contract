@@ -454,7 +454,7 @@ impl RemittanceContract {
 
     /// Return the contract version string.
     pub fn version(env: Env) -> soroban_sdk::String {
-        soroban_sdk::String::from_str(&env, "1.2.0")
+        soroban_sdk::String::from_str(&env, "1.3.0")
     }
 
     /// Return aggregate contract statistics in a single call.
@@ -1030,7 +1030,7 @@ impl RemittanceContract {
     pub fn remove_admin(env: Env, admin_to_remove: Address) {
         Self::require_admin(&env);
 
-        let mut admins: soroban_sdk::Vec<Address> = env
+        let admins: soroban_sdk::Vec<Address> = env
             .storage()
             .instance()
             .get(&DataKey::AdminSet)
@@ -1147,13 +1147,13 @@ impl RemittanceContract {
             return;
         }
 
-        let ledger_day = env.ledger().sequence() / 17280; // ~24h of ledgers
+        let ledger_day = u64::from(env.ledger().sequence()) / 17280; // ~24h of ledgers
         let volume_key = DataKey::DailyVolume(addr.clone());
         let (stored_day, current_volume): (u64, i128) = env
             .storage()
             .persistent()
             .get(&volume_key)
-            .unwrap_or((ledger_day, 0i128));
+            .unwrap_or((0u64, 0i128));
 
         let effective_volume = if stored_day == ledger_day {
             current_volume

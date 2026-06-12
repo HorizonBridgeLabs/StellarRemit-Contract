@@ -1042,6 +1042,44 @@ fn test_withdraw_emits_event_with_correct_data() {
     assert_eq!(amount, 1_000_000);
 }
 
+// ── transaction_exists tests ───────────────────────────
+
+#[test]
+fn test_transaction_exists_returns_true_for_valid_tx() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+    let tx_id = client.send(&sender, &recipient, &200_000);
+
+    assert!(client.transaction_exists(&tx_id));
+}
+
+#[test]
+fn test_transaction_exists_returns_false_for_invalid_tx() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    assert!(!client.transaction_exists(&999));
+    assert!(!client.transaction_exists(&0));
+}
+
+#[test]
+fn test_transaction_exists_after_escrow() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+
+    assert!(client.transaction_exists(&tx_id));
+}
+
 #[test]
 fn test_rate_limit_updated_emits_event_with_correct_data() {
     let (env, client) = setup();

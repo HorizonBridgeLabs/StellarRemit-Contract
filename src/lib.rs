@@ -795,9 +795,7 @@ impl RemittanceContract {
         let to_key = DataKey::Balance(to.clone());
         let to_bal: i128 = env.storage().persistent().get(&to_key).unwrap_or(0);
 
-        env.storage()
-            .persistent()
-            .set(&treasury_key, &0i128);
+        env.storage().persistent().set(&treasury_key, &0i128);
         env.storage().persistent().set(
             &to_key,
             &to_bal.checked_add(treasury_bal).expect("arithmetic overflow"),
@@ -953,9 +951,7 @@ impl RemittanceContract {
     }
 
     /// Return upgrade history: (count, last_timestamp, previous_version).
-    pub fn get_upgrade_info(
-        env: Env,
-    ) -> (u32, u64, soroban_sdk::String) {
+    pub fn get_upgrade_info(env: Env) -> (u32, u64, soroban_sdk::String) {
         env.storage()
             .instance()
             .get(&DataKey::UpgradeHistory)
@@ -1017,9 +1013,7 @@ impl RemittanceContract {
 
         // Set default threshold to 1 if not set
         if !env.storage().instance().has(&DataKey::ApprovalThreshold) {
-            env.storage()
-                .instance()
-                .set(&DataKey::ApprovalThreshold, &1u32);
+            env.storage().instance().set(&DataKey::ApprovalThreshold, &1u32);
         }
 
         env.events()
@@ -1043,10 +1037,7 @@ impl RemittanceContract {
                 new_admins.push_back(admin);
             }
         }
-        assert!(
-            new_admins.len() < len_before,
-            "admin not found in set"
-        );
+        assert!(new_admins.len() < len_before, "admin not found in set");
         assert!(!new_admins.is_empty(), "cannot remove last admin");
 
         env.storage().instance().set(&DataKey::AdminSet, &new_admins);
@@ -1075,17 +1066,10 @@ impl RemittanceContract {
             .storage()
             .instance()
             .get(&DataKey::AdminSet)
-            .unwrap_or_else(|| {
-                soroban_sdk::vec![&env]
-            });
-        assert!(
-            threshold <= admins.len(),
-            "threshold cannot exceed admin count"
-        );
+            .unwrap_or_else(|| soroban_sdk::vec![&env]);
+        assert!(threshold <= admins.len(), "threshold cannot exceed admin count");
 
-        env.storage()
-            .instance()
-            .set(&DataKey::ApprovalThreshold, &threshold);
+        env.storage().instance().set(&DataKey::ApprovalThreshold, &threshold);
 
         env.events()
             .publish((Symbol::new(&env, "threshold_updated"),), threshold);
@@ -1164,12 +1148,7 @@ impl RemittanceContract {
         assert!(
             effective_volume + amount <= daily_limit,
             "daily transfer volume limit exceeded"
-        );
-
-        env.storage().persistent().set(
-            &volume_key,
-            &(ledger_day, effective_volume + amount),
-        );
+        );        env.storage().persistent().set(&volume_key, &(ledger_day, effective_volume + amount));
     }
 
     /// Enforce a cooldown between consecutive send/escrow operations per address.

@@ -463,8 +463,10 @@ impl RemittanceContract {
     }
 
     /// Admin-only: extend the TTL (time-to-live) of core persistent entries.
-    /// Bumps ledger entry lifetimes by `ledgers` ledgers for TotalSupply
-    /// and all stored Transaction entries. Call periodically to prevent
+    /// Bumps ledger entry lifetimes by `ledgers` ledgers for TotalSupply,
+    /// all stored Transaction entries, associated Balance entries (sender
+    /// and recipient addresses found in transactions), and all UserMetadata
+    /// entries found in transactions. Call periodically to prevent
     /// ledger eviction of persistent data.
     pub fn extend_ttl(env: Env, ledgers: u32) {
         Self::require_admin(&env);
@@ -476,14 +478,52 @@ impl RemittanceContract {
             .persistent()
             .extend_ttl(&DataKey::TotalSupply, threshold, threshold);
 
-        // Extend all stored transaction entries
+        // Collect unique addresses from all transactions and extend
+        // their Balance and UserMetadata entries alongside the transactions.
         let count: u64 = env.storage().instance().get(&DataKey::TxCount).unwrap_or(0);
         for id in 1..=count {
-            let key = DataKey::Transaction(id);
-            if env.storage().persistent().has(&key) {
+            let tx_key = DataKey::Transaction(id);
+            if env.storage().persistent().has(&tx_key) {
+                // Extend the transaction entry itself
                 env.storage()
                     .persistent()
-                    .extend_ttl(&key, threshold, threshold);
+                    .extend_ttl(&tx_key, threshold, threshold);
+
+                // Read the transaction to find associated addresses
+                if let Some(tx) = env
+                    .storage()
+                    .persistent()
+                    .get::<DataKey, Transaction>(&tx_key)
+                {
+                    // Extend Balance for sender
+                    let sender_bal_key = DataKey::Balance(tx.sender.clone());
+                    if env.storage().persistent().has(&sender_bal_key) {
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&sender_bal_key, threshold, threshold);
+                    }
+                    // Extend Balance for recipient
+                    let rec_bal_key = DataKey::Balance(tx.recipient.clone());
+                    if env.storage().persistent().has(&rec_bal_key) {
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&rec_bal_key, threshold, threshold);
+                    }
+                    // Extend UserMetadata for sender
+                    let sender_meta_key = DataKey::UserMetadata(tx.sender.clone());
+                    if env.storage().persistent().has(&sender_meta_key) {
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&sender_meta_key, threshold, threshold);
+                    }
+                    // Extend UserMetadata for recipient
+                    let rec_meta_key = DataKey::UserMetadata(tx.recipient);
+                    if env.storage().persistent().has(&rec_meta_key) {
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&rec_meta_key, threshold, threshold);
+                    }
+                }
             }
         }
 

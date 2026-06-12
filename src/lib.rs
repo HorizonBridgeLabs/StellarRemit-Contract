@@ -18,11 +18,20 @@ pub struct RemittanceContract;
 #[contractimpl]
 impl RemittanceContract {
     /// Initialize contract with an admin address for the remmittanceContract.
+    ///
+    /// # Security
+    /// - Requires admin auth for initialization
+    /// - Guards against double initialization
+    /// - Validates admin is not the contract itself
     pub fn init(env: Env, admin: Address) {
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
         admin.require_auth();
+        assert!(
+            admin != env.current_contract_address(),
+            "admin cannot be the contract itself"
+        );
         const DEFAULT_COOLDOWN: u64 = 300;
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::TxCount, &0u64);
@@ -166,15 +175,18 @@ impl RemittanceContract {
         } else {
             0
         };
-        let tx = Transaction {
+        // Create transaction with Pending status first, then move to Escrowed
+        let mut tx = Transaction {
             id,
             sender: sender.clone(),
             recipient,
             amount,
-            status: TransactionStatus::Escrowed,
+            status: TransactionStatus::Pending,
             timestamp,
             expires_at,
         };
+        // Transition to Escrowed after creation
+        tx.status = TransactionStatus::Escrowed;
         // Transaction uses persistent storage — survives ledger expiry
         env.storage()
             .persistent()
@@ -289,6 +301,10 @@ impl RemittanceContract {
     /// Transfer admin rights to a new address.
     /// Requires authentication from the current admin.
     /// Emits an admin_transferred event.
+    ///
+    /// # Security
+    /// Validates that the new admin is not the same as the current admin
+    /// and that the new admin address is not the contract itself.
     pub fn transfer_admin(env: Env, new_admin: Address) {
         let current_admin: Address = env
             .storage()
@@ -300,6 +316,10 @@ impl RemittanceContract {
         assert!(
             new_admin != current_admin,
             "new admin must differ from current admin"
+        );
+        assert!(
+            new_admin != env.current_contract_address(),
+            "admin cannot be the contract itself"
         );
 
         env.storage().instance().set(&DataKey::Admin, &new_admin);
@@ -373,9 +393,18 @@ impl RemittanceContract {
 
     /// Admin-only: withdraw funds from the contract (e.g., collected fees).
     /// `from` is the address whose balance to draw from; `to` receives the funds.
+    ///
+    /// # Security
+    /// Requires admin auth. Validates that from != to (no self-transfer).
+    /// The destination address must not be the contract itself.
     pub fn withdraw(env: Env, from: Address, to: Address, amount: i128) {
         Self::require_admin(&env);
         assert!(amount > 0, "withdraw amount must be greater than zero");
+        assert!(from != to, "cannot withdraw to same address");
+        assert!(
+            to != env.current_contract_address(),
+            "cannot withdraw to contract itself"
+        );
 
         let from_key = DataKey::Balance(from.clone());
         let from_bal: i128 = env.storage().persistent().get(&from_key).unwrap_or(0);
@@ -410,7 +439,7 @@ impl RemittanceContract {
 
     /// Return the contract version string.
     pub fn version(env: Env) -> soroban_sdk::String {
-        soroban_sdk::String::from_str(&env, "1.1.0")
+        soroban_sdk::String::from_str(&env, "1.2.0")
     }
 
     /// Return aggregate contract statistics in a single call.
@@ -437,6 +466,10 @@ impl RemittanceContract {
 
     /// Store arbitrary user metadata (e.g., KYC status, profile info).
     /// Only the user themselves can set their own metadata.
+    ///
+    /// # Security
+    /// Requires user auth. Validates that the key is not empty and
+    /// the value length does not exceed reasonable bounds.
     pub fn set_user_metadata(
         env: Env,
         user: Address,
@@ -444,6 +477,10 @@ impl RemittanceContract {
         value: soroban_sdk::String,
     ) {
         user.require_auth();
+        assert!(key.len() > 0, "metadata key must not be empty");
+        assert!(value.len() > 0, "metadata value must not be empty");
+        assert!(key.len() <= 128, "metadata key exceeds maximum length");
+        assert!(value.len() <= 1024, "metadata value exceeds maximum length");
         let storage_key = DataKey::UserMetadata(user.clone());
         env.storage()
             .persistent()
@@ -463,9 +500,14 @@ impl RemittanceContract {
     }
 
     /// Admin-only: extend the TTL (time-to-live) of core persistent entries.
-    /// Bumps ledger entry lifetimes by `ledgers` ledgers for TotalSupply
-    /// and all stored Transaction entries. Call periodically to prevent
+    /// Bumps ledger entry lifetimes by `ledgers` ledgers for TotalSupply,
+    /// all stored Transaction entries, associated Balance entries (sender
+    /// and recipient addresses found in transactions), and all UserMetadata
+    /// entries found in transactions. Call periodically to prevent
     /// ledger eviction of persistent data.
+    ///
+    /// # Security
+    /// Requires admin auth. Ledgers must be greater than zero.
     pub fn extend_ttl(env: Env, ledgers: u32) {
         Self::require_admin(&env);
         assert!(ledgers > 0, "ledgers must be greater than zero");
@@ -476,14 +518,52 @@ impl RemittanceContract {
             .persistent()
             .extend_ttl(&DataKey::TotalSupply, threshold, threshold);
 
-        // Extend all stored transaction entries
+        // Collect unique addresses from all transactions and extend
+        // their Balance and UserMetadata entries alongside the transactions.
         let count: u64 = env.storage().instance().get(&DataKey::TxCount).unwrap_or(0);
         for id in 1..=count {
-            let key = DataKey::Transaction(id);
-            if env.storage().persistent().has(&key) {
+            let tx_key = DataKey::Transaction(id);
+            if env.storage().persistent().has(&tx_key) {
+                // Extend the transaction entry itself
                 env.storage()
                     .persistent()
-                    .extend_ttl(&key, threshold, threshold);
+                    .extend_ttl(&tx_key, threshold, threshold);
+
+                // Read the transaction to find associated addresses
+                if let Some(tx) = env
+                    .storage()
+                    .persistent()
+                    .get::<DataKey, Transaction>(&tx_key)
+                {
+                    // Extend Balance for sender
+                    let sender_bal_key = DataKey::Balance(tx.sender.clone());
+                    if env.storage().persistent().has(&sender_bal_key) {
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&sender_bal_key, threshold, threshold);
+                    }
+                    // Extend Balance for recipient
+                    let rec_bal_key = DataKey::Balance(tx.recipient.clone());
+                    if env.storage().persistent().has(&rec_bal_key) {
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&rec_bal_key, threshold, threshold);
+                    }
+                    // Extend UserMetadata for sender
+                    let sender_meta_key = DataKey::UserMetadata(tx.sender.clone());
+                    if env.storage().persistent().has(&sender_meta_key) {
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&sender_meta_key, threshold, threshold);
+                    }
+                    // Extend UserMetadata for recipient
+                    let rec_meta_key = DataKey::UserMetadata(tx.recipient);
+                    if env.storage().persistent().has(&rec_meta_key) {
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&rec_meta_key, threshold, threshold);
+                    }
+                }
             }
         }
 
@@ -497,6 +577,14 @@ impl RemittanceContract {
             .persistent()
             .get(&DataKey::Transaction(transaction_id))
             .expect("transaction not found")
+    }
+
+    /// Check whether a transaction with the given ID exists.
+    /// Returns true if the transaction is stored, false otherwise.
+    pub fn transaction_exists(env: Env, transaction_id: u64) -> bool {
+        env.storage()
+            .persistent()
+            .has(&DataKey::Transaction(transaction_id))
     }
 
     /// Read balance for an address.
@@ -514,9 +602,17 @@ impl RemittanceContract {
 
     /// Admin-only: configure the fee (basis points) and treasury address.
     /// Set fee_bps to 0 to disable fees. Max: 10_000 bps (100%).
+    ///
+    /// # Security
+    /// The treasury address must not be the contract itself to prevent
+    /// fee funds from becoming permanently locked.
     pub fn set_fee(env: Env, fee_bps: u32, treasury: Address) {
         Self::require_admin(&env);
         assert!(fee_bps <= 10_000, "fee basis points must not exceed 10_000");
+        assert!(
+            treasury != env.current_contract_address(),
+            "treasury cannot be the contract itself"
+        );
 
         let config = FeeConfig {
             fee_bps,

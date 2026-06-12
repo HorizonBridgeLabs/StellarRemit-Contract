@@ -40,6 +40,17 @@ Admin can pause the contract to halt deposits, sends, and escrows while preservi
 ### Self-transfer Prevention
 `sender != recipient` assertion prevents accidental self-transfers.
 
+### Contract Address Guards
+- `init(admin)` — refuses the contract's own address as admin
+- `transfer_admin(new_admin)` — refuses the contract's own address as new admin
+- `set_fee(fee_bps, treasury)` — refuses the contract's own address as treasury
+- `withdraw(from, to, amount)` — refuses from==to and contract as destination
+
+### Input Validation
+- `set_user_metadata` — enforces key length ≤ 128 chars, value length ≤ 1024 chars, both non-empty
+- `deposit` — enforces minimum deposit threshold (1,000,000 stroops)
+- All amount parameters validated > 0 on state-changing operations
+
 ## Development Practices
 - CI enforces `cargo fmt`, `cargo clippy -D warnings`, `cargo test`, and `cargo build --release`
 - `#![no_std]` ensures no std imports

@@ -88,6 +88,24 @@ fn test_escrow_insufficient_balance() {
     client.escrow_funds(&sender, &recipient, &5_000_000, &0); // should panic
 }
 
+// ── Pending status tests ───────────────────────────────
+
+#[test]
+fn test_escrow_initial_status_is_escrowed() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+    let tx = client.get_transaction(&tx_id);
+    // Escrow should be in Escrowed status after creation
+    assert_eq!(tx.status, TransactionStatus::Escrowed);
+    assert!(tx.status != TransactionStatus::Pending);
+}
+
 #[test]
 fn test_escrow_and_release() {
     let (env, client) = setup();
@@ -585,6 +603,20 @@ fn test_rate_limit_allows_after_cooldown() {
 
 // ── withdraw tests ──────────────────────────────────────
 
+// ── withdraw validation tests ──────────────────────────
+
+#[test]
+#[should_panic(expected = "cannot withdraw to same address")]
+fn test_withdraw_same_address_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&admin, &5_000_000);
+
+    // from == to should panic
+    client.withdraw(&admin, &admin, &1_000_000);
+}
+
 #[test]
 fn test_withdraw_moves_funds() {
     let (env, client) = setup();
@@ -1040,6 +1072,122 @@ fn test_withdraw_emits_event_with_correct_data() {
     let (to, amount): (Address, i128) = data.into_val(&env);
     assert_eq!(to, treasury);
     assert_eq!(amount, 1_000_000);
+}
+
+// ── transaction_exists tests ───────────────────────────
+
+#[test]
+fn test_transaction_exists_returns_true_for_valid_tx() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+    let tx_id = client.send(&sender, &recipient, &200_000);
+
+    assert!(client.transaction_exists(&tx_id));
+}
+
+#[test]
+fn test_transaction_exists_returns_false_for_invalid_tx() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    assert!(!client.transaction_exists(&999));
+    assert!(!client.transaction_exists(&0));
+}
+
+// ── security validation tests ──────────────────────────
+
+#[test]
+#[should_panic(expected = "admin cannot be the contract itself")]
+fn test_transfer_admin_to_contract_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register_contract(None, RemittanceContract);
+    let client = RemittanceContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    // Try to transfer admin to the contract's own address
+    client.transfer_admin(&client.address);
+}
+
+#[test]
+#[should_panic(expected = "admin cannot be the contract itself")]
+fn test_init_with_contract_address_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register_contract(None, RemittanceContract);
+    let client = RemittanceContractClient::new(&env, &contract_id);
+    // Try to use the contract's own address as admin
+    client.init(&client.address);
+}
+
+#[test]
+#[should_panic(expected = "treasury cannot be the contract itself")]
+fn test_set_fee_with_contract_treasury_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    client.set_fee(&500, &client.address);
+}
+
+#[test]
+#[should_panic(expected = "metadata key must not be empty")]
+fn test_set_user_metadata_empty_key_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    let key = soroban_sdk::String::from_str(&env, "");
+    let value = soroban_sdk::String::from_str(&env, "verified");
+    client.set_user_metadata(&user, &key, &value);
+}
+
+#[test]
+#[should_panic(expected = "metadata value must not be empty")]
+fn test_set_user_metadata_empty_value_fails() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    let key = soroban_sdk::String::from_str(&env, "kyc_status");
+    let value = soroban_sdk::String::from_str(&env, "");
+    client.set_user_metadata(&user, &key, &value);
+}
+
+#[test]
+fn test_set_user_metadata_long_key_succeeds() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    client.init(&admin);
+
+    let key = soroban_sdk::String::from_str(&env, &"a".repeat(128));
+    let value = soroban_sdk::String::from_str(&env, "verified");
+    client.set_user_metadata(&user, &key, &value);
+
+    let result = client.get_user_metadata(&user);
+    assert!(result.is_some());
+}
+
+#[test]
+fn test_transaction_exists_after_escrow() {
+    let (env, client) = setup();
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    client.init(&admin);
+    client.deposit(&sender, &1_000_000);
+    let tx_id = client.escrow_funds(&sender, &recipient, &400_000, &0);
+
+    assert!(client.transaction_exists(&tx_id));
 }
 
 #[test]

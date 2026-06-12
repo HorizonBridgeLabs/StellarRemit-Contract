@@ -744,7 +744,7 @@ impl RemittanceContract {
             recipients.len() == amounts.len(),
             "recipients and amounts length mismatch"
         );
-        assert!(recipients.len() > 0, "must provide at least one recipient");
+        assert!(!recipients.is_empty(), "must provide at least one recipient");
 
         let count = recipients.len();
         for i in 0..count {
@@ -1047,7 +1047,7 @@ impl RemittanceContract {
             new_admins.len() < len_before,
             "admin not found in set"
         );
-        assert!(new_admins.len() > 0, "cannot remove last admin");
+        assert!(!new_admins.is_empty(), "cannot remove last admin");
 
         env.storage().instance().set(&DataKey::AdminSet, &new_admins);
 
@@ -1079,7 +1079,7 @@ impl RemittanceContract {
                 soroban_sdk::vec![&env]
             });
         assert!(
-            threshold as u32 <= admins.len(),
+            threshold <= admins.len(),
             "threshold cannot exceed admin count"
         );
 

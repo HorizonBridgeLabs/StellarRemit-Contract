@@ -86,6 +86,7 @@ impl RemittanceContract {
         assert!(sender != recipient, "cannot send to yourself");
         Self::require_not_paused(&env);
         Self::check_rate_limit(&env, &sender);
+        Self::check_daily_volume(&env, &sender, amount);
 
         let (net_amount, fee_amount) = Self::compute_fee(&env, amount);
         assert!(
@@ -162,6 +163,7 @@ impl RemittanceContract {
         assert!(sender != recipient, "cannot escrow to yourself");
         Self::require_not_paused(&env);
         Self::check_rate_limit(&env, &sender);
+        Self::check_daily_volume(&env, &sender, amount);
 
         // Balance uses persistent storage — survives ledger expiry
         let sender_key = DataKey::Balance(sender.clone());
@@ -208,6 +210,7 @@ impl RemittanceContract {
     }
 
     /// Release escrowed funds to recipient.
+    /// If the escrow has a memo, recipient confirmation is required before release.
     pub fn release_escrow(env: Env, transaction_id: u64) {
         // Transaction uses persistent storage — survives ledger expiry
         let key = DataKey::Transaction(transaction_id);
@@ -225,6 +228,11 @@ impl RemittanceContract {
                 u64::from(env.ledger().sequence()) <= tx.expires_at,
                 "escrow expired"
             );
+        }
+
+        // Require recipient confirmation if memo is present (confirmation flow)
+        if tx.memo.is_some() {
+            assert!(tx.recipient_confirmed, "recipient must confirm escrow first");
         }
 
         tx.sender.require_auth();
@@ -999,6 +1007,43 @@ impl RemittanceContract {
                 .get(&DataKey::Paused)
                 .unwrap_or(false),
             "contract is paused"
+        );
+    }
+
+    /// Enforce daily transfer volume limit per address.
+    /// Checks and updates the running daily total for the address.
+    fn check_daily_volume(env: &Env, addr: &Address, amount: i128) {
+        let daily_limit: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::DailyLimit)
+            .unwrap_or(0);
+        if daily_limit == 0 {
+            return;
+        }
+
+        let ledger_day = env.ledger().sequence() / 17280; // ~24h of ledgers
+        let volume_key = DataKey::DailyVolume(addr.clone());
+        let (stored_day, current_volume): (u64, i128) = env
+            .storage()
+            .persistent()
+            .get(&volume_key)
+            .unwrap_or((ledger_day, 0i128));
+
+        let effective_volume = if stored_day == ledger_day {
+            current_volume
+        } else {
+            0i128
+        };
+
+        assert!(
+            effective_volume + amount <= daily_limit,
+            "daily transfer volume limit exceeded"
+        );
+
+        env.storage().persistent().set(
+            &volume_key,
+            &(ledger_day, effective_volume + amount),
         );
     }
 

@@ -61,11 +61,13 @@ See [README.md](./README.md#storage-design) for full details.
 
 ## Conventions
 
-- All public functions document auth requirements in doc comments
+- All public functions document auth requirements and security considerations in doc comments
 - Events are emitted for all state-changing operations
 - Balance arithmetic uses `checked_add`/`checked_sub` with `expect("arithmetic overflow")`
 - Rate limiting and pause guards use private helper functions
 - Tests use `env.events()` for event verification and `env.ledger().set()` for time manipulation
+- Contract address guards prevent self-referencing on sensitive operations
+- All user inputs are validated before processing (amounts, metadata lengths, addresses)
 
 ## Issues
 

@@ -1202,7 +1202,7 @@ fn test_send_with_memo() {
     client.deposit(&sender, &1_000_000);
 
     let memo = soroban_sdk::Bytes::from_array(&env, &[1, 2, 3, 4]);
-    let tx_id = client.send(&sender, &recipient, &200_000, &Some(memo.clone(, &None)));
+    let tx_id = client.send(&sender, &recipient, &200_000, &Some(memo.clone()));
 
     let tx = client.get_transaction(&tx_id);
     assert_eq!(tx.memo, Some(memo));

@@ -538,38 +538,30 @@ impl RemittanceContract {
                     // Extend Balance for sender
                     let sender_bal_key = DataKey::Balance(tx.sender.clone());
                     if env.storage().persistent().has(&sender_bal_key) {
-                        env.storage().persistent().extend_ttl(
-                            &sender_bal_key,
-                            threshold,
-                            threshold,
-                        );
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&sender_bal_key, threshold, threshold);
                     }
                     // Extend Balance for recipient
                     let rec_bal_key = DataKey::Balance(tx.recipient.clone());
                     if env.storage().persistent().has(&rec_bal_key) {
-                        env.storage().persistent().extend_ttl(
-                            &rec_bal_key,
-                            threshold,
-                            threshold,
-                        );
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&rec_bal_key, threshold, threshold);
                     }
                     // Extend UserMetadata for sender
                     let sender_meta_key = DataKey::UserMetadata(tx.sender.clone());
                     if env.storage().persistent().has(&sender_meta_key) {
-                        env.storage().persistent().extend_ttl(
-                            &sender_meta_key,
-                            threshold,
-                            threshold,
-                        );
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&sender_meta_key, threshold, threshold);
                     }
                     // Extend UserMetadata for recipient
                     let rec_meta_key = DataKey::UserMetadata(tx.recipient);
                     if env.storage().persistent().has(&rec_meta_key) {
-                        env.storage().persistent().extend_ttl(
-                            &rec_meta_key,
-                            threshold,
-                            threshold,
-                        );
+                        env.storage()
+                            .persistent()
+                            .extend_ttl(&rec_meta_key, threshold, threshold);
                     }
                 }
             }

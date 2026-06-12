@@ -113,6 +113,7 @@ bash deploy.sh
 | `rate_limit_updated` | `set_rate_limit` | `cooldown_seconds` |
 | `ttl_extended` | `extend_ttl` | `ledgers` |
 | `metadata_updated` | `set_user_metadata` | `(user, key)` |
+| `escrow_transitioned` | `escrow_funds` | `(tx_id, status)` |
 
 ---
 

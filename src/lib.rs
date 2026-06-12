@@ -79,7 +79,8 @@ impl RemittanceContract {
     }
 
     /// Transfer funds from sender to recipient immediately.
-    pub fn send(env: Env, sender: Address, recipient: Address, amount: i128) -> u64 {
+    /// `memo`: optional payment reference (max 64 bytes).
+    pub fn send(env: Env, sender: Address, recipient: Address, amount: i128, memo: Option<soroban_sdk::Bytes>) -> u64 {
         sender.require_auth();
         assert!(amount > 0, "Send amount must be greater than zero");
         assert!(sender != recipient, "cannot send to yourself");
@@ -125,6 +126,8 @@ impl RemittanceContract {
             status: TransactionStatus::Completed,
             timestamp,
             expires_at: 0,
+            memo,
+            recipient_confirmed: false,
         };
         // Transaction uses persistent storage — survives ledger expiry
         env.storage()
@@ -145,12 +148,14 @@ impl RemittanceContract {
 
     /// Lock funds in escrow pending release.
     /// `expiry_ledgers`: number of ledgers until escrow expires (0 = no expiry).
+    /// `memo`: optional payment reference (max 64 bytes).
     pub fn escrow_funds(
         env: Env,
         sender: Address,
         recipient: Address,
         amount: i128,
         expiry_ledgers: u32,
+        memo: Option<soroban_sdk::Bytes>,
     ) -> u64 {
         sender.require_auth();
         assert!(amount > 0, "Escrow amount must be greater than zero");
@@ -184,6 +189,8 @@ impl RemittanceContract {
             status: TransactionStatus::Pending,
             timestamp,
             expires_at,
+            memo,
+            recipient_confirmed: false,
         };
         // Transition to Escrowed after creation
         tx.status = TransactionStatus::Escrowed;
